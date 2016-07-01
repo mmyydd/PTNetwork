@@ -6,11 +6,13 @@
 //  Copyright © 2016年 number201724. All rights reserved.
 //
 
-#ifndef crc32_h
-#define crc32_h
+#ifndef _PT_CRC32_INCLUED_H_
+#define _PT_CRC32_INCLUED_H_
 
 #include <stdio.h>
+#include <stdint.h>
 
 uint32_t
 crc32(uint32_t crc, const void *buf, size_t size);
-#endif /* crc32_h */
+
+#endif

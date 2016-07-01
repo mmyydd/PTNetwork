@@ -1,9 +1,10 @@
-#ifndef _PT_ENGINE_SERVER_H_
-#define _PT_ENGINE_SERVER_H_
+#ifndef _PT_SERVER_INCLUED_H_
+#define _PT_SERVER_INCLUED_H_
 
+#include "common.h"
 #include "buffer.h"
+#include "table.h"
 #include "packet.h"
-#include "../common/table.h"
 
 struct pt_server;
 struct pt_sclient;
@@ -18,7 +19,7 @@ struct pt_sclient
     struct pt_server *server;
     
     //套接字描述信息
-	uv_tcp_t sock;
+    pt_net_t sock;
     
     //当前套接字是否被连接
     qboolean connected;
@@ -28,11 +29,9 @@ struct pt_sclient
     //libuv申请的异步缓冲区buffer
     uv_buf_t *async_buf;
     
-    
-    //用户数据发送到服务器的时间戳
-    uint32_t timestamp;
+    uint32_t serial;
+    RC4_KEY encrypt_ctx;
 };
-
 
 typedef qboolean (*pt_server_on_connect)(struct pt_sclient *user);
 typedef void (*pt_server_on_receive)(struct pt_sclient *user, struct pt_buffer *buff);
@@ -46,13 +45,25 @@ struct pt_server
     //uv_loop 主循环
     uv_loop_t *loop;
     //服务器accept的套接字信息
-    uv_tcp_t listener;
+    pt_net_t listener;
     //客户端列表
 	struct pt_table *clients;
     int number_of_max_connected;
     int number_of_connected;
     
+    qboolean is_pipe;
     
+    //tcp nodelay
+    qboolean no_delay;
+    
+    //keep alive延迟时间
+    int keep_alive_delay;
+    
+    //加密函数使用
+    qboolean enable_encrypt;
+    uint32_t encrypt_key[4];
+    
+    qboolean is_shutdown;
     qboolean is_init;
     /*
         提供给libuv的回调函数
@@ -85,15 +96,24 @@ struct pt_server
 
 struct pt_server* pt_server_new();
 void pt_server_free(struct pt_server *srv);
-qboolean pt_server_init(struct pt_server *server, uv_loop_t *loop,int max_conn, pt_server_on_connect on_conn,
-                        pt_server_on_receive on_receive, pt_server_on_disconnect on_disconnect);
 
 
-qboolean pt_server_start(struct pt_server *server, char* host, uint16_t port);
+void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay);
+
+qboolean pt_server_init(struct pt_server *server, uv_loop_t *loop,int max_conn, int keep_alive_delay,
+                        pt_server_on_connect on_conn,pt_server_on_receive on_receive,
+                        pt_server_on_disconnect on_disconnect);
+
+void pt_server_set_encrypt(struct pt_server *server, const uint32_t encrypt_key[4]);
+
+qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port);
+qboolean pt_server_start_pipe(struct pt_server *server, const char *path);
 qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff);
+qboolean pt_server_disconnect_conn(struct pt_server *server, struct pt_sclient *user);
+
+void pt_server_close(struct pt_server *server);
 
 
 qboolean verify_packet(struct pt_buffer *buff);
-qboolean pt_server_decrypt_packet(struct pt_sclient *user, struct pt_buffer *buff);
 
 #endif

@@ -1,34 +1,30 @@
-#ifndef _COMMON_PROTOCOL_H_
-#define _COMMON_PROTOCOL_H_
+#ifndef _PT_PROTO_INCLUED_H_
+#define _PT_PROTO_INCLUED_H_
 
 #pragma pack(1)
-#define PACKET_MAGIC 0xABCD
+#define PACKET_MAGIC 'MDZZ'
 
 /*
-    chacha20算法支持库：libsodium
+    chacha20算法支持库：rc4
  */
 
 struct net_header
 {
     //包头 等于PACKET_MAGIC
-	uint16_t magic;
+	uint32_t magic;
     //包长度，需要计算sizeof(struct net_header)的大小
 	uint32_t length;
     //包类型ID
 	uint16_t id;
-    //回调到特殊节点服务器，如大厅服务器，聊天服务器，匹配服务器等
-    uint8_t forward_to;
-    //包内容是否加密，如果数据包已加密
-    uint8_t encrypt;
     //哈希数据
     uint32_t crc;
 };
 
 /*
  =========================================================================
-    所有加密的数据的算法都定为chacha20
+    所有加密的数据的算法都定为RC4
     加密数据包格式
-    uint32_t   timestamp;       对于需要加密的数据，使用timestamp防止重放攻击
+    uint32_t   serial;          包序列
     unsigned char data[n];      追加的真实数据
  =========================================================================
  */
@@ -56,10 +52,10 @@ enum protocol_enum_id
 
 /*
  =========================================================================
- 当数据传输为ID_TRANSMIT_JSON时  强制使用chacha20算法进行加密
- 并且设置encrypt = true且计算原始json的crc值
+ 当数据传输为ID_TRANSMIT_JSON时的JSON结构信息为
  
  {
+    "type" : "chat",
     "action": "xxxMethod",
     "params": {
         .....

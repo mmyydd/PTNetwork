@@ -1,8 +1,9 @@
-#ifndef _PT_ENGINE_CLIENT_H_
-#define _PT_ENGINE_CLIENT_H_
+#ifndef _PT_CLIENT_INCLUED_H_
+#define _PT_CLIENT_INCLUED_H_
 
-#include "packet.h"
+
 #include "buffer.h"
+#include "packet.h"
 
 struct pt_client;
 
@@ -10,10 +11,12 @@ struct pt_client;
 typedef void (*pt_cli_on_connected)(struct pt_client *conn);
 typedef void (*pt_cli_on_receive)(struct pt_client *conn, struct pt_buffer *buff);
 typedef void (*pt_cli_on_disconnected)(struct pt_client *conn);
+
+
 struct pt_client
 {
     //socket
-    uv_tcp_t conn;
+    pt_net_t conn;
     
     //uv_loop 主循环
     uv_loop_t *loop;
@@ -39,8 +42,13 @@ struct pt_client
     //投递给libuv的异步缓冲区
     uv_buf_t *async_buf;
     
-    //时间戳
-    uint32_t timestamp;
+    
+    //加密函数使用
+    uint32_t serial;
+    RC4_KEY encrypt_ctx;
+    qboolean enable_encrypt;
+    uint32_t encrypt_key[4];
+    
     
     
     /*
@@ -53,11 +61,21 @@ struct pt_client
 };
 
 struct pt_client *pt_client_new();
-void pt_client_init(uv_loop_t *loop, struct pt_client *client, pt_cli_on_connected on_connected, pt_cli_on_receive on_receive, pt_cli_on_disconnected on_disconnected);
 void pt_client_free(struct pt_client *client);
-void pt_client_send(struct pt_client *client, struct pt_buffer *buff);
+
+
+//初始化一个pt_client结构，设置回调函数等
+void pt_client_init(uv_loop_t *loop, struct pt_client *client, pt_cli_on_connected on_connected, pt_cli_on_receive on_receive, pt_cli_on_disconnected on_disconnected);
+
+//连接服务器
 void pt_client_connect(struct pt_client *client, const char *host, uint16_t port);
+void pt_client_connect_pipe(struct pt_client *client, const char *path);
 void pt_client_disconnect(struct pt_client *client);
 
+//添加发送数据到队列中
+void pt_client_send(struct pt_client *client, struct pt_buffer *buff);
+
+//设置加密解密信息
+void pt_client_set_encrypt(struct pt_client *client, const uint32_t encrypt_key[4]);
 
 #endif

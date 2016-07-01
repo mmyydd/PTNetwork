@@ -1,5 +1,5 @@
-#ifndef _PT_TABLE_H_
-#define _PT_TABLE_H_
+#ifndef _PT_TABLE_INCLUED_H_
+#define _PT_TABLE_INCLUED_H_
 
 
 #define TABLE_NORMAL_COUNT 65535
@@ -34,7 +34,7 @@ struct pt_table *pt_table_new();
 /*
     删除一个快速搜索表
  */
-void pt_table_delete(struct pt_table *ptable);
+void pt_table_free(struct pt_table *ptable);
 /*
     清空快速搜索表的内容
  */
@@ -46,7 +46,7 @@ uint32_t pt_table_size(struct pt_table *ptable);
 /*
     添加一个数据到表内
  */
-void  pt_table_insert(struct pt_table *ptable, uint64_t id, void* ptr);
+void pt_table_insert(struct pt_table *ptable, uint64_t id, void* ptr);
 
 /*
     从表中移除一个数据
