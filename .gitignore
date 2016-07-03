@@ -1,3 +1,6 @@
+# Ignore Mac Store File
+.DS_Store
+
 # Object files
 *.o
 *.ko

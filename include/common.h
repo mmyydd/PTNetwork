@@ -13,8 +13,6 @@
 #include <openssl/rc4.h>
 
 
-#define TRACE
-
 #include "def_types.h"
 
 

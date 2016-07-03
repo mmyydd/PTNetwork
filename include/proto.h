@@ -2,7 +2,7 @@
 #define _PT_PROTO_INCLUED_H_
 
 #pragma pack(1)
-#define PACKET_MAGIC 'MDZZ'
+#define PACKET_MAGIC 'ZZDM'
 
 /*
     chacha20算法支持库：rc4

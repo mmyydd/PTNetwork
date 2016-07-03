@@ -61,4 +61,6 @@ void pt_buffer_enable_allocator(qboolean enable);
  */
 void pt_buffer_set_allocator_count(uint32_t count);
 
+
+void DUMP(struct pt_buffer*buff);
 #endif

@@ -12,6 +12,9 @@
 void FATAL(const char *message, const char *function, const char *file, int line);
 void ERROR(const char *message, const char *function, const char *file, int line);
 void LOG(const char *message, const char *function, const char *file, int line);
+void TRACE(const char *message, const char *function, const char *file, int line);
+
+#define DBGPRINT(Message) TRACE(Message,__FUNCTION__,__FILE__,__LINE__)
 
 typedef void (*error_report_cb)(const char *message, const char *function, const char *file, int line);
 

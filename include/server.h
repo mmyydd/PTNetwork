@@ -21,15 +21,17 @@ struct pt_sclient
     //套接字描述信息
     pt_net_t sock;
     
-    //当前套接字是否被连接
+    //当前套接字是否被连接,如果服务器被关闭则设置为false
+    //同时也不会发送数据和接收数据
     qboolean connected;
     
     //接收到数据后，未拆包的数据
 	struct pt_buffer *buf;
     //libuv申请的异步缓冲区buffer
     uv_buf_t *async_buf;
-    
+    //加密函数使用的序列
     uint32_t serial;
+    //rc4加密key
     RC4_KEY encrypt_ctx;
 };
 
@@ -48,9 +50,17 @@ struct pt_server
     pt_net_t listener;
     //客户端列表
 	struct pt_table *clients;
+    
+    //客户端的最大连接数和当前连结数
     int number_of_max_connected;
     int number_of_connected;
     
+    //限制服务器每个用户的发送数据队列
+    //防止服务器因为客户端拒绝接收数据导致内存耗尽
+    //默认1000
+    int number_of_max_send_queue;
+    
+    //服务器当前工作模式是否是pipe
     qboolean is_pipe;
     
     //tcp nodelay
@@ -63,7 +73,10 @@ struct pt_server
     qboolean enable_encrypt;
     uint32_t encrypt_key[4];
     
-    qboolean is_shutdown;
+    
+    qboolean is_startup;
+    
+    //服务器是否已经初始化
     qboolean is_init;
     /*
         提供给libuv的回调函数
@@ -71,12 +84,6 @@ struct pt_server
     uv_write_cb write_cb;
     uv_read_cb read_cb;
     uv_connection_cb connection_cb;
-    uv_shutdown_cb shutdown_cb;
-    
-    /*
-        当服务器初始化的时候执行
-     */
-    void (*on_init)(struct pt_server *server);
     
     /*
         当用户建立连接到服务器
@@ -98,22 +105,31 @@ struct pt_server* pt_server_new();
 void pt_server_free(struct pt_server *srv);
 
 
+//禁用或者启用Nagle算法
 void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay);
 
-qboolean pt_server_init(struct pt_server *server, uv_loop_t *loop,int max_conn, int keep_alive_delay,
+
+//初始化一个服务器对象
+//设置回调函数
+void pt_server_init(struct pt_server *server, uv_loop_t *loop,int max_conn, int keep_alive_delay,
                         pt_server_on_connect on_conn,pt_server_on_receive on_receive,
                         pt_server_on_disconnect on_disconnect);
 
+//启用加密算法
+//算法目前使用rc4加密
 void pt_server_set_encrypt(struct pt_server *server, const uint32_t encrypt_key[4]);
 
+//启动服务器 监听tcp端口
 qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port);
+
+//启动服务器 监听文件描述符
 qboolean pt_server_start_pipe(struct pt_server *server, const char *path);
+
+//将数据追加到发送队列
 qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff);
-qboolean pt_server_disconnect_conn(struct pt_server *server, struct pt_sclient *user);
+//服务器请求断开一个用户的连接
+qboolean pt_server_disconnect_conn(struct pt_sclient *user);
 
+//关闭服务器
 void pt_server_close(struct pt_server *server);
-
-
-qboolean verify_packet(struct pt_buffer *buff);
-
 #endif

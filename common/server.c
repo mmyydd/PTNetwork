@@ -88,45 +88,24 @@ static void pt_server_write_cb(uv_write_t* req, int status)
 /*
  当成功关闭了handle后，释放用户资源
  */
-static void pt_server_on_close(uv_handle_t* peer) {
+static void pt_server_on_close_conn(uv_handle_t* peer) {
     struct pt_sclient *user = peer->data;
     
     pt_sclient_free(user);
 }
 
 
-static void pt_server_on_close_listener(uv_handle_t *handle)
+//关闭一个客户端的连接
+static void pt_server_close_conn(struct pt_sclient *user, qboolean remove)
 {
-    struct pt_server *server = handle->data;
-    server->is_shutdown = true;
-}
-
-/*
- shutdown函数执行完成后调用
- 这里会转向调用到uv_close来关闭uv_handle_t结构以及释放pt_sclient的结构
- */
-static void pt_server_shutdown_cb(uv_shutdown_t* req, int status)
-{
-    struct pt_sclient *user = req->data;
-    uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close);
-    free(req);
-}
-
-/*
- 断开一个用户
- 
- 如果remove值为true就从全局表中删除这个用户
- 
- */
-static void pt_server_shutdown_conn(struct pt_sclient *user, qboolean remove)
-{
-    int r;
-    uv_shutdown_t *sreq;
-    struct pt_server *server;
-    sreq = malloc(sizeof *sreq);
-    server = user->server;
+    struct pt_server *server = user->server;
     
-    sreq->data = user;
+    //检查用户是否已被关闭
+    if(user->connected  == false)
+    {
+        return;
+    }
+    
     user->connected = false;
     
     if(remove)
@@ -141,14 +120,15 @@ static void pt_server_shutdown_conn(struct pt_sclient *user, qboolean remove)
         server->number_of_connected--;
     }
     
-    r = uv_shutdown(sreq, &user->sock.stream, pt_server_shutdown_cb);
-    
-    if( r != 0 )
-    {
-        FATAL("uv_shutdown failed", __FUNCTION__, __FILE__, __LINE__);
-        free(sreq);
-        abort();
-    }
+    uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
+}
+
+
+//关闭服务器的回调函数
+static void pt_server_on_close_listener(uv_handle_t *handle)
+{
+    struct pt_server *server = handle->data;
+    server->is_startup = false;
 }
 
 /*
@@ -161,41 +141,47 @@ static void pt_server_shutdown_conn(struct pt_sclient *user, qboolean remove)
  */
 static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
-    uint32_t packet_err;
-    uv_stream_t *sock = (uv_stream_t*)stream;
-    struct pt_sclient *user = sock->data;
+    uint32_t packet_err = PACKET_INFO_OK;   //默认是没有任何错误的
+    struct pt_sclient *user = stream->data;
     struct pt_buffer *userbuf = NULL;
     
     //用户状态异常断开，执行disconnect
     if(nread < 0)
     {
-        pt_server_shutdown_conn(user, true);
+        DBGPRINT("nread < 0");
+        pt_server_close_conn(user, true);
         return;
     }
     
     //用户发送了EOF包，执行断开
     if(nread == 0){
-        pt_server_shutdown_conn(user, true);
+        DBGPRINT("nread == 0");
+        pt_server_close_conn(user, true);
         return;
     }
     
-    //写数据到缓冲区
+    //将数据追加到缓冲区
     pt_buffer_write(user->buf, (unsigned char*)buf->base, (uint32_t)nread);
     
     //循环读取缓冲区数据，如果数据错误则返回false且不再执行本while
-    while(pt_get_packet_status(user->buf, &packet_err)){
-        
+    //稳定性修复，当客户端断开的时候，不再处理接收的数据
+    //等待系统的回收
+    //在这里connected == false一般是由pt_server_send函数overflow导致的
+    while(user->connected && pt_get_packet_status(user->buf, &packet_err))
+    {
+        //拆分一个数据包
         userbuf = pt_split_packet(user->buf);
         if(userbuf != NULL)
         {
-            //如果服务器开启了加密功能
+            //如果服务器开启了加密功能,则执行解密函数
             if(user->server->enable_encrypt)
             {
                 //对数据包进行解密，并且校验包序列，且校验数据的crc是否正确
-                if(pt_decrypt_package(user->serial, &user->encrypt_ctx, userbuf) == false){
+                if(pt_decrypt_package(user->serial, &user->encrypt_ctx, userbuf) == false)
+                {
                     //数据不正确，断开用户的连接，释放缓冲区
                     pt_buffer_free(userbuf);
-                    pt_server_shutdown_conn(user, true);
+                    pt_server_close_conn(user, true);
                     return;
                 }
                 
@@ -209,10 +195,13 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
                 user->server->on_receive(user, userbuf);
             }
             
+            //释放拆分包后的数据
             pt_buffer_free(userbuf);
         }
-        else{
-            ERROR("pt_split_packet == NULL wtf?", __FUNCTION__, __FILE__, __LINE__);
+        else
+        {
+            //一般情况下不会出现拆包等于0的问题，如果出现这个则肯定是致命错误
+            FATAL("pt_split_packet == NULL wtf?", __FUNCTION__, __FILE__, __LINE__);
         }
     }
     
@@ -222,7 +211,7 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
         const char *msg = packet_err == PACKET_INFO_FAKE ? "PACKET_INFO_FAKE" : "PACKET_INFO_OVERFLOW";
         sprintf(error, "pt_get_packet_status error:%s",msg);
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
-        pt_server_shutdown_conn(user, true);
+        pt_server_close_conn(user, true);
     }
 }
 
@@ -242,12 +231,11 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     
     if(server->is_pipe){
         uv_pipe_init(listener->loop, &user->sock.pipe, true);
-        user->sock.stream.data = user;
     } else {
         uv_tcp_init(listener->loop, &user->sock.tcp);
-        user->sock.stream.data = user;
     }
     
+    user->sock.stream.data = user;
     
     r = uv_accept(listener, (uv_stream_t*)&user->sock);
     
@@ -257,19 +245,22 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
         char error[255];
         sprintf(error, "uv_accept error:%s",uv_strerror(r));
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
-        uv_close((uv_handle_t*)&user->sock, pt_server_on_close);
+        uv_close((uv_handle_t*)&user->sock, pt_server_on_close_conn);
         return;
     }
     
+    //设置客户端连接已经成功
+    user->connected = true;
+    
     //限制当前服务器的最大连接数
     if(server->number_of_connected + 1 > server->number_of_max_connected){
-        pt_server_shutdown_conn(user, false);
+        pt_server_close_conn(user, false);
         return;
     }
     
     //进行数据过滤，如果用户Connect请求被on_connect干掉则直接断开用户
     if(server->on_connect && server->on_connect(user) == false){
-        pt_server_shutdown_conn(user, false);
+        pt_server_close_conn(user, false);
         return;
     }
     
@@ -279,7 +270,6 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     }
     
     server->number_of_connected++;
-    
     
     if(server->is_pipe == false){
         //设置用户30秒后做keepalive检查
@@ -303,7 +293,8 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
         sprintf(error, "uv_read_start error:%s",uv_strerror(r));
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
         
-        uv_close((uv_handle_t*)&user->sock, pt_server_on_close);
+        //修复一个bug，之前直接使用uv_close，正确应该使用这个函数
+        pt_server_close_conn(user, true);
         return;
     }
 }
@@ -325,29 +316,35 @@ struct pt_server* pt_server_new()
     server->connection_cb = pt_server_connection_cb;
     server->read_cb = pt_server_read_cb;
     server->write_cb = pt_server_write_cb;
-    server->shutdown_cb = pt_server_shutdown_cb;
+    server->number_of_max_send_queue = 1000;
     
     return server;
 }
 
+
+
 void pt_server_free(struct pt_server *srv)
 {
+    if(srv->is_startup == true){
+        FATAL("server not shutdown", __FUNCTION__, __FILE__, __LINE__);
+        abort();
+    }
     pt_table_free(srv->clients);
     
     free(srv);
 }
+
 void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay)
 {
     server->no_delay = nodelay;
 }
-qboolean pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int keep_alive_delay,pt_server_on_connect on_conn,
+
+void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int keep_alive_delay,pt_server_on_connect on_conn,
                         pt_server_on_receive on_receive, pt_server_on_disconnect on_disconnect)
 {
-    int r;
-    
     if(server->is_init){
         LOG("server already initialize",__FUNCTION__,__FILE__,__LINE__);
-        return false;
+        return;
     }
     
     server->number_of_max_connected = max_conn;
@@ -358,8 +355,6 @@ qboolean pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn,
     server->keep_alive_delay = keep_alive_delay;
     
     server->is_init = true;
-    
-    return r == 0;
 }
 
 qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port)
@@ -397,9 +392,10 @@ qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t po
         pt_server_log("uv_listen failed:%s",r, __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
+    
+    server->is_startup = true;
     return true;
 }
-
 
 
 qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
@@ -433,8 +429,11 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
         pt_server_log("uv_listen failed:%s",r, __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
+    
+    server->is_startup = true;
     return true;
 }
+
 
 
 void pt_server_set_encrypt(struct pt_server *server, const uint32_t encrypt_key[4])
@@ -452,6 +451,19 @@ void pt_server_set_encrypt(struct pt_server *server, const uint32_t encrypt_key[
  */
 qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
 {
+    if(user->connected == false){
+        pt_buffer_free(buff);
+        return false;
+    }
+    
+    //防止服务器发包过多导致服务器的内存耗尽
+    if(user->sock.stream.write_queue_size >= user->server->number_of_max_send_queue){
+        DBGPRINT("user datagram overflow");
+        pt_server_close_conn(user, true);
+        pt_buffer_free(buff);
+        return false;
+    }
+    
     struct pt_wreq *wreq = malloc(sizeof(struct pt_wreq));
     
     wreq->buff = buff;
@@ -478,16 +490,16 @@ void pt_server_close(struct pt_server *server)
         while(n){
             p = n;
             n = n->next;
-            pt_server_shutdown_conn(p->ptr, true);
+            pt_server_close_conn(p->ptr, true);
         }
     }
     uv_close((uv_handle_t*)&server->listener, pt_server_on_close_listener);
 }
 
-qboolean pt_server_disconnect_conn(struct pt_server *server, struct pt_sclient *user)
+qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 {
     if(user->connected){
-        pt_server_shutdown_conn(user, true);
+        pt_server_close_conn(user, true);
         return true;
     }
     return false;

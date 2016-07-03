@@ -167,3 +167,16 @@ qboolean pt_buffer_read(struct pt_buffer *buff,unsigned char *data, uint32_t len
     
     return true;
 }
+
+
+void DUMP(struct pt_buffer*buff)
+{
+    uint32_t i = 0;
+    
+    for(i = 0; i < buff->length; i ++)
+    {
+        printf("%02X",buff->buff[i]);
+    }
+    
+    printf("\n");
+}

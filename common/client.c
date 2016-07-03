@@ -61,23 +61,10 @@ static void pt_client_close_cb(uv_handle_t* peer) {
     struct pt_client *client = sock->data;
     
     bzero(&client->conn, sizeof(client->conn));
+    
     if(client->buf) {
         client->buf->length = 0;
     }
-}
-
-static void pt_client_shutdown_cb(uv_shutdown_t* req, int status)
-{
-    struct pt_client *client = req->data;
-    free(req);
-    
-    client->connected = false;
-    
-    if(client->on_disconnected){
-        client->on_disconnected(client);
-    }
-    
-    uv_close((uv_handle_t*)&client->conn, pt_client_close_cb);
 }
 
 static void pt_client_read_cb(uv_stream_t* stream,
@@ -284,14 +271,13 @@ void pt_client_connect_pipe(struct pt_client *client, const char *path)
 
 void pt_client_disconnect(struct pt_client *client)
 {
-    uv_shutdown_t *req = malloc(sizeof(uv_shutdown_t));
-    req->data = client;
+    if(client->connected == false) return;
     
-    int r = uv_shutdown(req, (uv_stream_t*)&client->conn, pt_client_shutdown_cb);
+    client->connected = false;
     
-    if(r){
-        char msg[256];
-        sprintf(msg,"uv_shutdown error %d",r);
-        ERROR(msg, __FUNCTION__, __FILE__, __LINE__);
+    if(client->on_disconnected){
+        client->on_disconnected(client);
     }
+    
+    uv_close((uv_handle_t*)&client->conn.stream, pt_client_close_cb);
 }

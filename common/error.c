@@ -39,6 +39,13 @@ void LOG(const char *message, const char *function, const char *file, int line)
     }
 }
 
+void TRACE(const char *message, const char *function, const char *file, int line)
+{
+    printf("TRACE:%s\n",message);
+}
+
+
+
 void set_fatal_filter(error_report_cb cb)
 {
     fatal_cb = cb;
