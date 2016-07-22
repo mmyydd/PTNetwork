@@ -1,8 +1,8 @@
-#include "common.h"
-#include "buffer.h"
-#include "error.h"
-#include "crc32.h"
-#include "packet.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/buffer.h>
+#include <ptnetwork/error.h>
+#include <ptnetwork/crc32.h>
+#include <ptnetwork/packet.h>
 
 uint32_t pt_max_pack_size = 0x10000;
 
@@ -45,10 +45,6 @@ struct pt_buffer* pt_split_packet(struct pt_buffer *netbuf)
     hdr = (struct net_header*)netbuf->buff;
     buf = pt_buffer_new(hdr->length);
     
-    if(buf == NULL){
-        FATAL("pt_buffer_new == NULL", __FUNCTION__, __FILE__, __LINE__);
-        abort();
-    }
     if(pt_buffer_read(netbuf, buf->buff, hdr->length, true) == false){
         pt_buffer_free(buf);
         return NULL;
@@ -132,7 +128,7 @@ struct pt_buffer * pt_create_encrypt_package(RC4_KEY *ctx, uint32_t *serial,
     return buff;
 }
 
-struct pt_buffer *pt_create_package(struct net_header hdr,unsigned char* data, uint32_t length)
+struct pt_buffer *pt_create_package(struct net_header hdr,void* data, uint32_t length)
 {
     struct pt_buffer *buff = pt_buffer_new(256);
     struct net_header *new_hdr;

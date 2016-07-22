@@ -6,10 +6,10 @@
 //  Copyright © 2016年 number201724. All rights reserved.
 //
 
-#include "common.h"
-#include "error.h"
-#include "crc32.h"
-#include "server.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/error.h>
+#include <ptnetwork/crc32.h>
+#include <ptnetwork/server.h>
 
 static void pt_server_log(const char *fmt, int error, const char *func, const char *file, int line)
 {
@@ -24,22 +24,14 @@ static void pt_server_alloc_buf(uv_handle_t* handle,size_t suggested_size,uv_buf
     
     if(user->async_buf){
         if(user->async_buf->len < suggested_size){
-            free(user->async_buf->base);
+            MEM_FREE(user->async_buf->base);
             user->async_buf->len = suggested_size;
-            user->async_buf->base = malloc(suggested_size);
-            if(user->async_buf->base == NULL){
-                FATAL("malloc user->readbuf->buf failed", __FUNCTION__, __FILE__, __LINE__);
-                abort();
-            }
+            user->async_buf->base = MEM_MALLOC(suggested_size);
         }
     } else {
-        user->async_buf = malloc(sizeof(*user->async_buf));
-        user->async_buf->base = malloc(suggested_size);
+        user->async_buf = MEM_MALLOC(sizeof(*user->async_buf));
+        user->async_buf->base = MEM_MALLOC(suggested_size);
         user->async_buf->len = suggested_size;
-        if(user->async_buf->base == NULL){
-            FATAL("malloc user->readbuf->buf failed", __FUNCTION__, __FILE__, __LINE__);
-            abort();
-        }
     }
     
     
@@ -51,7 +43,7 @@ static struct pt_sclient* pt_sclient_new(struct pt_server *server)
 {
     struct pt_sclient *user;
     
-    user = malloc(sizeof(struct pt_sclient));
+    user = MEM_MALLOC(sizeof(struct pt_sclient));
     bzero(user, sizeof(struct pt_sclient));
     
     user->buf = pt_buffer_new(USER_DEFAULT_BUFF_SIZE);
@@ -66,11 +58,11 @@ static void pt_sclient_free(struct pt_sclient* user)
     user->buf = NULL;
     
     if(user->async_buf){
-        free(user->async_buf->base);
-        free(user->async_buf);
+        MEM_FREE(user->async_buf->base);
+        MEM_FREE(user->async_buf);
         user->async_buf = NULL;
     }
-    free(user);
+    MEM_FREE(user);
 }
 
 /*
@@ -82,7 +74,7 @@ static void pt_server_write_cb(uv_write_t* req, int status)
     struct pt_wreq *wr = (struct pt_wreq*)req;
     
     pt_buffer_free(wr->buff);
-    free(wr);
+    MEM_FREE(wr);
 }
 
 /*
@@ -128,7 +120,8 @@ static void pt_server_close_conn(struct pt_sclient *user, qboolean remove)
 static void pt_server_on_close_listener(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-    server->is_startup = false;
+    server->state = PT_STATE_NORMAL;
+    //server->is_startup = false;
 }
 
 /*
@@ -171,43 +164,35 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
     {
         //拆分一个数据包
         userbuf = pt_split_packet(user->buf);
-        if(userbuf != NULL)
+        //如果服务器开启了加密功能,则执行解密函数
+        if(user->server->enable_encrypt)
         {
-            //如果服务器开启了加密功能,则执行解密函数
-            if(user->server->enable_encrypt)
+            //对数据包进行解密，并且校验包序列，且校验数据的crc是否正确
+            if(pt_decrypt_package(user->serial, &user->encrypt_ctx, userbuf) == false)
             {
-                //对数据包进行解密，并且校验包序列，且校验数据的crc是否正确
-                if(pt_decrypt_package(user->serial, &user->encrypt_ctx, userbuf) == false)
-                {
-                    //数据不正确，断开用户的连接，释放缓冲区
-                    pt_buffer_free(userbuf);
-                    pt_server_close_conn(user, true);
-                    return;
-                }
-                
-                //数据正确，增加包序列
-                user->serial++;
+                //数据不正确，断开用户的连接，释放缓冲区
+                pt_buffer_free(userbuf);
+                pt_server_close_conn(user, true);
+                return;
             }
             
-            //回调用户函数，通知数据到达
-            if(user->server->on_receive)
-            {
-                user->server->on_receive(user, userbuf);
-            }
-            
-            //释放拆分包后的数据
-            pt_buffer_free(userbuf);
+            //数据正确，增加包序列
+            user->serial++;
         }
-        else
+        
+        //回调用户函数，通知数据到达
+        if(user->server->on_receive)
         {
-            //一般情况下不会出现拆包等于0的问题，如果出现这个则肯定是致命错误
-            FATAL("pt_split_packet == NULL wtf?", __FUNCTION__, __FILE__, __LINE__);
+            user->server->on_receive(user, userbuf);
         }
+        
+        //释放拆分包后的数据
+        pt_buffer_free(userbuf);
     }
     
     //如果用户发的数据是致命错误，则干掉用户
     if(packet_err == PACKET_INFO_FAKE || packet_err == PACKET_INFO_OVERFLOW){
-        char error[255];
+        char error[100];
         const char *msg = packet_err == PACKET_INFO_FAKE ? "PACKET_INFO_FAKE" : "PACKET_INFO_OVERFLOW";
         sprintf(error, "pt_get_packet_status error:%s",msg);
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
@@ -242,7 +227,7 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     //如果accept失败，写出错误日志，并关掉这个sock
     if( r != 0 )
     {
-        char error[255];
+        char error[100];
         sprintf(error, "uv_accept error:%s",uv_strerror(r));
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
         uv_close((uv_handle_t*)&user->sock, pt_server_on_close_conn);
@@ -275,7 +260,6 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
         //设置用户30秒后做keepalive检查
         uv_tcp_keepalive(&user->sock.tcp, true, server->keep_alive_delay);
         
-        
         if(server->no_delay){
             uv_tcp_nodelay(&user->sock.tcp, true);
         }
@@ -289,7 +273,7 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     
     if( r != 0 )
     {
-        char error[255];
+        char error[100];
         sprintf(error, "uv_read_start error:%s",uv_strerror(r));
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
         
@@ -301,18 +285,14 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
 
 struct pt_server* pt_server_new()
 {
-    struct pt_server *server = (struct pt_server *)malloc(sizeof(struct pt_server));
-    
-    if(server == NULL){
-        FATAL("malloc pt_server failed",__FUNCTION__,__FILE__,__LINE__);
-        abort();
-    }
+    struct pt_server *server = (struct pt_server *)MEM_MALLOC(sizeof(struct pt_server));
     
     bzero(server, sizeof(struct pt_server));
     
     server->clients = pt_table_new();
     
     //初始化libuv的回调函数
+    server->state = PT_STATE_NORMAL;
     server->connection_cb = pt_server_connection_cb;
     server->read_cb = pt_server_read_cb;
     server->write_cb = pt_server_write_cb;
@@ -325,13 +305,13 @@ struct pt_server* pt_server_new()
 
 void pt_server_free(struct pt_server *srv)
 {
-    if(srv->is_startup == true){
+    if(srv->state != PT_STATE_NORMAL){
         FATAL("server not shutdown", __FUNCTION__, __FILE__, __LINE__);
-        abort();
     }
+    
     pt_table_free(srv->clients);
     
-    free(srv);
+    MEM_FREE(srv);
 }
 
 void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay)
@@ -342,7 +322,7 @@ void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay)
 void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int keep_alive_delay,pt_server_on_connect on_conn,
                         pt_server_on_receive on_receive, pt_server_on_disconnect on_disconnect)
 {
-    if(server->is_init){
+    if(server->state != PT_STATE_NORMAL){
         LOG("server already initialize",__FUNCTION__,__FILE__,__LINE__);
         return;
     }
@@ -354,7 +334,7 @@ void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int
     server->on_disconnect = on_disconnect;
     server->keep_alive_delay = keep_alive_delay;
     
-    server->is_init = true;
+    server->state = PT_STATE_INIT;
 }
 
 qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port)
@@ -363,7 +343,8 @@ qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t po
     struct sockaddr_in adr;
     
     
-    if(!server->is_init){
+    if(server->state == PT_STATE_NORMAL)
+    {
         LOG("server not initialize",__FUNCTION__,__FILE__,__LINE__);
         return false;
     }
@@ -393,7 +374,7 @@ qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t po
         return false;
     }
     
-    server->is_startup = true;
+    server->state = PT_STATE_STARTUP;
     return true;
 }
 
@@ -402,7 +383,8 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
 {
     int r;
     
-    if(!server->is_init){
+    if(server->state == PT_STATE_NORMAL)
+    {
         LOG("server not initialize",__FUNCTION__,__FILE__,__LINE__);
         return false;
     }
@@ -430,7 +412,7 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
         return false;
     }
     
-    server->is_startup = true;
+    server->state = PT_STATE_STARTUP;
     return true;
 }
 
@@ -451,48 +433,63 @@ void pt_server_set_encrypt(struct pt_server *server, const uint32_t encrypt_key[
  */
 qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
 {
+    assert(buff != NULL);
+    qboolean result = false;
+    
     if(user->connected == false){
-        pt_buffer_free(buff);
-        return false;
+        goto ProcedureEnd;
     }
     
     //防止服务器发包过多导致服务器的内存耗尽
     if(user->sock.stream.write_queue_size >= user->server->number_of_max_send_queue){
-        DBGPRINT("user datagram overflow");
         pt_server_close_conn(user, true);
-        pt_buffer_free(buff);
-        return false;
+        goto ProcedureEnd;
     }
     
-    struct pt_wreq *wreq = malloc(sizeof(struct pt_wreq));
+    struct pt_wreq *wreq = MEM_MALLOC(sizeof(struct pt_wreq));
     
+    //引用当前buffer
+    pt_buffer_ref_increment(buff);
     wreq->buff = buff;
     wreq->buf = uv_buf_init((char*)buff->buff, buff->length);
     
     if (uv_write(&wreq->req, (uv_stream_t*)&user->sock, &wreq->buf, 1, user->server->write_cb)) {
-        pt_buffer_free(wreq->buff);
-        free(wreq);
-        return false;
+        MEM_FREE(wreq);
+        
+        //刚才增加了引用计数,现在减掉
+        pt_buffer_free(buff);
+        goto ProcedureEnd;
     }
     
-    return true;
+ProcedureEnd:
+    pt_buffer_free(buff);
+    return result;
 }
 
+static void pt_server_send_to_all_cb(struct pt_table *ptable, uint64_t id, void *ptr, void* user_arg)
+{
+    struct pt_buffer *buff = user_arg;
+    struct pt_sclient *user = ptr;
+    
+    pt_buffer_ref_increment(buff);
+    pt_server_send(user, buff);
+}
+
+void pt_server_send_to_all(struct pt_server *server, struct pt_buffer *buff)
+{
+    pt_table_enum(server->clients, pt_server_send_to_all_cb, buff);
+    pt_buffer_free(buff);
+}
+
+static void pt_server_close_all_cb(struct pt_table *ptable, uint64_t id, void *ptr, void* user_arg)
+{
+    pt_server_close_conn(ptr, true);
+}
 
 void pt_server_close(struct pt_server *server)
 {
-    uint32_t i;
-    struct pt_table_node *n;
-    struct pt_table_node *p;
-    for(i = 0; i < server->clients->granularity;i++)
-    {
-        n = server->clients->head[i];
-        while(n){
-            p = n;
-            n = n->next;
-            pt_server_close_conn(p->ptr, true);
-        }
-    }
+    pt_table_enum(server->clients, pt_server_close_all_cb, server);
+    pt_table_clear(server->clients);
     uv_close((uv_handle_t*)&server->listener, pt_server_on_close_listener);
 }
 

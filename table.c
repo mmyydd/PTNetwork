@@ -1,31 +1,20 @@
-#include "common.h"
-#include "table.h"
-#include "error.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/table.h>
+#include <ptnetwork/error.h>
+
 
 struct pt_table *pt_table_new()
 {
     struct pt_table *ptable;
     
     
-    ptable =(struct pt_table*)malloc(sizeof(struct pt_table));
-    
-    if(ptable == NULL)
-    {
-        FATAL("ptable == NULL", __FUNCTION__,__FILE__,__LINE__);
-        abort();
-    }
+    ptable =(struct pt_table*)MEM_MALLOC(sizeof(struct pt_table));
     
     bzero(ptable,sizeof(struct pt_table));
     
     ptable->granularity = TABLE_NORMAL_COUNT;
     ptable->size = 0;
-    ptable->head = (struct pt_table_node**)malloc(sizeof(struct pt_table_node*) * ptable->granularity);
-    
-    if(ptable->head == NULL)
-    {
-        FATAL("ptable->head == NULL", __FUNCTION__,__FILE__,__LINE__);
-        abort();
-    }
+    ptable->head = (struct pt_table_node**)MEM_MALLOC(sizeof(struct pt_table_node*) * ptable->granularity);
     
     bzero(ptable->head, sizeof(struct pt_table_node**) * ptable->granularity);
     
@@ -43,7 +32,7 @@ static void pt_table_free_node(struct pt_table_node** pnode)
     while(node)
     {
         tmp = node->next;
-        free(node);
+        MEM_FREE(node);
         node = tmp;
     }
     
@@ -68,8 +57,8 @@ void pt_table_free(struct pt_table *ptable)
 {
     pt_table_clear(ptable);
     
-    free(ptable->head);
-    free(ptable);
+    MEM_FREE(ptable->head);
+    MEM_FREE(ptable);
 }
 
 
@@ -77,10 +66,9 @@ static struct pt_table_node* pt_table_node_new()
 {
     struct pt_table_node *node = NULL;
     
-    node = (struct pt_table_node*)malloc(sizeof(struct pt_table_node));
+    node = (struct pt_table_node*)MEM_MALLOC(sizeof(struct pt_table_node));
     if(node == NULL){
-        FATAL("node == NULL", __FUNCTION__,__FILE__,__LINE__);
-        abort();
+        FATAL_MEMORY_ERROR();
     }
     
     bzero(node,sizeof(struct pt_table_node));
@@ -95,10 +83,6 @@ void pt_table_insert(struct pt_table *ptable, uint64_t id, void* ptr)
     if(ptable->head[index] == NULL)
     {
         ptable->head[index] = pt_table_node_new();
-        if(ptable->head[index] == NULL){
-            FATAL("pt_table_insert pt_table_node_new failed", __FUNCTION__, __FILE__, __LINE__);
-            abort();
-        }
         ptable->head[index]->id = id;
         ptable->head[index]->ptr = ptr;
         ptable->size++;
@@ -114,7 +98,6 @@ void pt_table_insert(struct pt_table *ptable, uint64_t id, void* ptr)
         ptable->size++;
     }
 }
-
 
 void pt_table_erase(struct pt_table *ptable, uint64_t id)
 {
@@ -142,7 +125,7 @@ void pt_table_erase(struct pt_table *ptable, uint64_t id)
                     ptable->head[index] = current->next;
                 }
                 
-                free(current);
+                MEM_FREE(current);
                 break;
             }
             
@@ -173,9 +156,23 @@ void* pt_table_find(struct pt_table *ptable, uint64_t id)
     return ptr;
 }
 
-
-
 uint32_t pt_table_size(struct pt_table *ptable)
 {
     return ptable->size;
+}
+
+void pt_table_enum(struct pt_table *ptable, pt_table_enum_cb cb,void *user_arg)
+{
+    uint32_t i;
+    struct pt_table_node *current = NULL;
+    
+    for(i = 0; i <ptable->granularity; i++)
+    {
+        current = ptable->head[i];
+        
+        while(current){
+            cb(ptable, current->id, current->ptr, user_arg);
+            current = current->next;
+        }
+    }
 }

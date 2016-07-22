@@ -22,4 +22,9 @@ void set_fatal_filter(error_report_cb cb);
 void set_error_filter(error_report_cb cb);
 void set_log_filter(error_report_cb cb);
 
+
+#define FATAL_MEMORY_ERROR() { \
+        ERROR("Allocate Memory Failed", __FUNCTION__, __FILE__, __LINE__); \
+    }
+
 #endif /* error_h */

@@ -1,16 +1,7 @@
-//
-//  client.c
-//  xcode
-//
-//  Created by 袁睿 on 16/6/24.
-//  Copyright © 2016年 number201724. All rights reserved.
-//
-
-
-#include "common.h"
-#include "crc32.h"
-#include "error.h"
-#include "client.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/crc32.h>
+#include <ptnetwork/error.h>
+#include <ptnetwork/client.h>
 
 static void pt_client_alloc_cb(uv_handle_t* handle,size_t suggested_size,uv_buf_t* buf) {
     uv_stream_t *sock = (uv_stream_t*)handle;
@@ -18,22 +9,14 @@ static void pt_client_alloc_cb(uv_handle_t* handle,size_t suggested_size,uv_buf_
     
     if(user->async_buf){
         if(user->async_buf->len < suggested_size){
-            free(user->async_buf->base);
+            MEM_FREE(user->async_buf->base);
             user->async_buf->len = suggested_size;
-            user->async_buf->base = malloc(suggested_size);
-            if(user->async_buf->base == NULL){
-                FATAL("malloc user->readbuf->buf failed", __FUNCTION__, __FILE__, __LINE__);
-                abort();
-            }
+            user->async_buf->base = MEM_MALLOC(suggested_size);
         }
     } else {
-        user->async_buf = malloc(sizeof(*user->async_buf));
-        user->async_buf->base = malloc(suggested_size);
+        user->async_buf = MEM_MALLOC(sizeof(*user->async_buf));
+        user->async_buf->base = MEM_MALLOC(suggested_size);
         user->async_buf->len = suggested_size;
-        if(user->async_buf->base == NULL){
-            FATAL("malloc user->readbuf->buf failed", __FUNCTION__, __FILE__, __LINE__);
-            abort();
-        }
     }
     
     
@@ -50,7 +33,7 @@ static void pt_client_write_cb(uv_write_t* req, int status)
     struct pt_wreq *wr = (struct pt_wreq*)req;
     
     pt_buffer_free(wr->buff);
-    free(wr);
+    MEM_FREE(wr);
 }
 
 /*
@@ -62,6 +45,7 @@ static void pt_client_close_cb(uv_handle_t* peer) {
     
     bzero(&client->conn, sizeof(client->conn));
     
+    client->conn.stream.data = client;
     if(client->buf) {
         client->buf->length = 0;
     }
@@ -114,24 +98,23 @@ static void pt_client_read_cb(uv_stream_t* stream,
         ERROR(error, __FUNCTION__, __FILE__, __LINE__);
         pt_client_disconnect(client);
     }
-    
 }
 
 static void pt_client_connect_cb(uv_connect_t* req, int status)
 {
     int r;
     struct pt_client *client = req->data;
-    client->connecting = false;
+    
     if(status != 0){
-        client->connected = false;
-        free(req);
+        client->state = PT_NO_CONNECT;
+        MEM_FREE(req);
         if(client->on_connected){
-            client->on_connected(client);
+            client->on_connected(client, client->state);
         }
         return;
     }
     
-    client->connected = true;
+    client->state = PT_CONNECTED;
     
     if(client->enable_encrypt) {
         RC4_set_key(&client->encrypt_ctx, sizeof(client->encrypt_key), (const unsigned char*)&client->encrypt_key);
@@ -139,24 +122,25 @@ static void pt_client_connect_cb(uv_connect_t* req, int status)
     }
     
     if(client->on_connected){
-        client->on_connected(client);
+        client->on_connected(client, client->state);
     }
     
     r = uv_read_start((uv_stream_t*)&client->conn, pt_client_alloc_cb, pt_client_read_cb);
     
     if( r != 0 ){
-        FATAL("uv_read_start failed", __FUNCTION__, __FILE__, __LINE__);
-        abort();
+        char msg[100];
+        sprintf(msg, "uv_read_start failed reason:%s",uv_strerror(r));
+        FATAL(msg, __FUNCTION__, __FILE__, __LINE__);
     }
     
-    free(req);
+    MEM_FREE(req);
 }
 
 struct pt_client *pt_client_new()
 {
     struct pt_client *client;
     
-    client = (struct pt_client*)malloc(sizeof(struct pt_client));
+    client = (struct pt_client*)MEM_MALLOC(sizeof(struct pt_client));
     
     bzero(client, sizeof(*client));
     
@@ -194,20 +178,30 @@ void pt_client_free(struct pt_client *client)
     }
     
     if(client->async_buf){
-        free(client->async_buf->base);
-        free(client->async_buf);
+        MEM_FREE(client->async_buf->base);
+        MEM_FREE(client->async_buf);
         client->async_buf = NULL;
     }
     
-    free(client);
+    MEM_FREE(client);
 }
 
 void pt_client_send(struct pt_client *client, struct pt_buffer *buff)
 {
     int r;
-    if(!client->connected) return;
+    if(client->state != PT_CONNECTED) return;
     
-    struct pt_wreq *req = malloc(sizeof(struct pt_wreq));
+//    //防止服务器发包过多导致服务器的内存耗尽
+//    if(client->sock.stream.write_queue_size >= user->server->number_of_max_send_queue){
+//        DBGPRINT("user datagram overflow");
+//        pt_server_close_conn(user, true);
+//        pt_buffer_free(buff);
+//        return false;
+//    }
+    
+    
+    
+    struct pt_wreq *req = MEM_MALLOC(sizeof(struct pt_wreq));
     req->buff = buff;
     req->data = client;
     req->buf = uv_buf_init((char*)buff->buff, buff->length);
@@ -216,7 +210,7 @@ void pt_client_send(struct pt_client *client, struct pt_buffer *buff)
     
     if(r != 0){
         FATAL("uv_write failed", __FUNCTION__, __FILE__,__LINE__);
-        free(req);
+        MEM_FREE(req);
         pt_buffer_free(buff);
     }
 }
@@ -226,54 +220,50 @@ void pt_client_connect(struct pt_client *client, const char *host, uint16_t port
     int r;
     struct sockaddr_in adr;
     
-    if(client->connecting || client->connected) return;
+    if(client->state != PT_NO_CONNECT) return;
     
     
     if(uv_tcp_init(client->loop,&client->conn.tcp) != 0){
         FATAL("uv_tcp_init failed", __FUNCTION__, __FILE__, __LINE__);
-        abort();
     }
     
-    uv_connect_t *conn = malloc(sizeof(uv_connect_t));
+    uv_connect_t *conn = MEM_MALLOC(sizeof(uv_connect_t));
     conn->data = client;
     
     uv_ip4_addr(host, port, &adr);
     
-    client->connecting = true;
+    client->state = PT_CONNECTING;
     
     r = uv_tcp_connect(conn, &client->conn.tcp, (const struct sockaddr*)&adr, pt_client_connect_cb);
     if(r != 0){
-        //printf("%s\n",uv_strerror(r));
-        client->connecting = false;
+        client->state = PT_NO_CONNECT;
         FATAL("uv_tcp_connect failed", __FUNCTION__, __FILE__, __LINE__);
-        abort();
+
     }
 }
 
 
 void pt_client_connect_pipe(struct pt_client *client, const char *path)
 {
-    if(client->connecting || client->connected) return;
-    
+    if(client->state != PT_NO_CONNECT) return;
     
     if(uv_pipe_init(client->loop,&client->conn.pipe, true) != 0){
         FATAL("uv_pipe_init failed", __FUNCTION__, __FILE__, __LINE__);
-        abort();
     }
     
-    uv_connect_t *conn = malloc(sizeof(uv_connect_t));
+    uv_connect_t *conn = MEM_MALLOC(sizeof(uv_connect_t));
     conn->data = client;
     
-    client->connecting = true;
+    client->state = PT_CONNECTING;
     
     uv_pipe_connect(conn, &client->conn.pipe, path, pt_client_connect_cb);
 }
 
 void pt_client_disconnect(struct pt_client *client)
 {
-    if(client->connected == false) return;
+    if(client->state != PT_CONNECTED) return;
     
-    client->connected = false;
+    client->state = PT_NO_CONNECT;
     
     if(client->on_disconnected){
         client->on_disconnected(client);

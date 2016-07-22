@@ -1,12 +1,4 @@
-//
-//  crc32.c
-//  xcode
-//
-//  Created by 袁睿 on 16/6/23.
-//  Copyright © 2016年 number201724. All rights reserved.
-//
-
-#include "crc32.h"
+#include <ptnetwork/crc32.h>
 
 
 static uint32_t crc32_tab[] = {

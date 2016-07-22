@@ -1,14 +1,6 @@
-//
-//  buffer_reader.c
-//  JsonEcho
-//
-//  Created by 袁睿 on 2016/6/29.
-//  Copyright © 2016年 number201724. All rights reserved.
-//
-
-#include "common.h"
-#include "buffer.h"
-#include "buffer_reader.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/buffer.h>
+#include <ptnetwork/buffer_reader.h>
 
 void buffer_reader_init(struct buffer_reader *reader, struct pt_buffer *buff)
 {
@@ -20,7 +12,7 @@ void buffer_reader_ignore_bytes(struct buffer_reader *reader, uint32_t n)
 {
     reader->pos += n;
 }
-qboolean buffer_reader_read(struct buffer_reader *reader, unsigned char *data, uint32_t length)
+qboolean buffer_reader_read(struct buffer_reader *reader, void *data, uint32_t length)
 {
     if(reader->pos + length > reader->buff->length){
         return false;

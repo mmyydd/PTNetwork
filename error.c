@@ -1,13 +1,5 @@
-//
-//  error.c
-//  xcode
-//
-//  Created by 袁睿 on 16/6/22.
-//  Copyright © 2016年 number201724. All rights reserved.
-//
-
-#include <stdio.h>
-#include "error.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/error.h>
 
 error_report_cb fatal_cb = NULL;
 error_report_cb error_cb = NULL;
@@ -19,6 +11,8 @@ void FATAL(const char *message, const char *function, const char *file, int line
     if(fatal_cb){
         fatal_cb(message,function,file,line);
     }
+    
+    abort();
 }
 
 void ERROR(const char *message, const char *function, const char *file, int line)

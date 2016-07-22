@@ -2,16 +2,24 @@
 #define _PT_CLIENT_INCLUED_H_
 
 
-#include "buffer.h"
-#include "packet.h"
+#include <ptnetwork/buffer.h>
+#include <ptnetwork/packet.h>
 
 struct pt_client;
 
 
-typedef void (*pt_cli_on_connected)(struct pt_client *conn);
+enum pt_client_state
+{
+    PT_NO_CONNECT,     //客户端没有建立与服务器的连接
+    PT_CONNECTING,      //客户端正在连接服务器
+    PT_CONNECTED,       //客户端连接服务器成功
+};
+
+
+
+typedef void (*pt_cli_on_connected)(struct pt_client *conn, enum pt_client_state state);
 typedef void (*pt_cli_on_receive)(struct pt_client *conn, struct pt_buffer *buff);
 typedef void (*pt_cli_on_disconnected)(struct pt_client *conn);
-
 
 struct pt_client
 {
@@ -29,12 +37,9 @@ struct pt_client
     
     //断开连接后调用
     pt_cli_on_disconnected on_disconnected;
-    
-    //是否已经建立了连接
-    qboolean connected;
-    
-    //正在连接中
-    qboolean connecting;
+
+    //当前客户端的连接状态
+    enum pt_client_state state;
     
     //收到的缓冲区数据
     struct pt_buffer *buf;
@@ -43,13 +48,15 @@ struct pt_client
     uv_buf_t *async_buf;
     
     
+    //用户data
+    void *data;
+    
+    
     //加密函数使用
     uint32_t serial;
     RC4_KEY encrypt_ctx;
     qboolean enable_encrypt;
     uint32_t encrypt_key[4];
-    
-    
     
     /*
      提供给libuv的回调函数

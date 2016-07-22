@@ -1,28 +1,30 @@
-#include "common.h"
-#include "error.h"
-#include "buffer.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/error.h>
+#include <ptnetwork/buffer.h>
 
 struct pt_buffer_allocator buffer_allocator = {0, 10000, false, NULL};
+
+uint32_t pt_buffer_ref_increment(struct pt_buffer *buff)
+{
+    return ++buff->ref_count;
+}
+
+uint32_t pt_buffer_ref_decrement(struct pt_buffer *buff)
+{
+    return --buff->ref_count;
+}
 
 static struct pt_buffer* pt_buffer_create(uint32_t length)
 {
     struct pt_buffer* buff;
     
-    buff = (struct pt_buffer*)malloc(sizeof(struct pt_buffer));
-    if(buff == NULL){
-        FATAL("pt_buffer_new malloc",__FUNCTION__, __FILE__, __LINE__);
-        abort();
-    }
+    buff = (struct pt_buffer*)MEM_MALLOC(sizeof(struct pt_buffer));
     
     buff->next = NULL;
     buff->length = 0;
     buff->max_length = ALIGN_SIZE(length, PAGESIZE);
-    buff->buff = (unsigned char*)malloc(buff->max_length);
-    
-    if(buff->buff == NULL){
-        FATAL("pt_buffer_new malloc",__FUNCTION__, __FILE__, __LINE__);
-        abort();
-    }
+    buff->buff = (unsigned char*)MEM_MALLOC(buff->max_length);
+    buff->ref_count = 0;
     
     return buff;
 };
@@ -30,9 +32,9 @@ static struct pt_buffer* pt_buffer_create(uint32_t length)
 static void pt_buffer_release(struct pt_buffer *buff)
 {
     assert(buff != NULL);
-    
-    free(buff->buff);
-    free(buff);
+
+    MEM_FREE(buff->buff);
+    MEM_FREE(buff);
 }
 
 static struct pt_buffer *pt_buffer_alloc_by_allocator()
@@ -45,10 +47,9 @@ static struct pt_buffer *pt_buffer_alloc_by_allocator()
     buffer_allocator.buffer_count--;
     buff = buffer_allocator.buff;
     buffer_allocator.buff = buff->next;
-    
-    
     buff->next = NULL;
     buff->length = 0;
+    buff->ref_count = 0;
     
     return buff;
 }
@@ -92,29 +93,48 @@ void pt_buffer_clear_allocator()
 
 struct pt_buffer* pt_buffer_new(uint32_t length)
 {
-    if(buffer_allocator.enable == false){
-        return pt_buffer_create(length);
+    struct pt_buffer* buff = NULL;
+
+    if(buffer_allocator.enable == false)
+    {
+        buff = pt_buffer_create(length);
     }
-    
-    struct pt_buffer* buff = pt_buffer_alloc_by_allocator();
-    
-    if(buff == NULL){
-        return pt_buffer_create(length);
+    else 
+    {
+        buff = pt_buffer_alloc_by_allocator();
+        if(buff == NULL){
+            buff = pt_buffer_create(length);
+        }
     }
+
+    assert(buff != NULL);
     
     pt_buffer_reserve(buff, length);
+    pt_buffer_ref_increment(buff);
+
     return buff;
 };
 
 void pt_buffer_free(struct pt_buffer *buff)
 {
+    assert(buff != NULL);
     
-    if(buffer_allocator.enable == false){
-        pt_buffer_release(buff);
-        return;
+    uint32_t ref_count = pt_buffer_ref_decrement(buff);
+    
+    assert(ref_count >= 0);
+
+    if(ref_count == 0)
+    {
+        if(buffer_allocator.enable == false)
+        {
+            pt_buffer_release(buff);
+        }
+        else
+        {
+            pt_buffer_free_by_allocator(buff);
+        }
     }
-    
-    pt_buffer_free_by_allocator(buff);
+
 }
 
 void pt_buffer_reserve(struct pt_buffer *buff, uint32_t length)
@@ -125,27 +145,26 @@ void pt_buffer_reserve(struct pt_buffer *buff, uint32_t length)
     
     new_length = ALIGN_SIZE(new_length, PAGESIZE);
     
-    buff->buff = (unsigned char*)realloc(buff->buff, new_length);
-    if(buff->buff == NULL){
-        FATAL("pt_buffer_reserve realloc", __FUNCTION__, __FILE__, __LINE__);
-        abort();
-    }
+    buff->buff = (unsigned char*)MEM_REALLOC(buff->buff, new_length);
     buff->max_length = new_length;
 }
 
-void pt_buffer_write(struct pt_buffer *buff, const unsigned char *data, uint32_t length)
+void pt_buffer_write(struct pt_buffer *buff, const void *data, uint32_t length)
 {
-    if(buff->length + length < buff->max_length){
+    uint32_t over_size = buff->length + length;
+    
+    if(over_size <= buff->max_length){
         memcpy(&buff->buff[buff->length],data,length);
         buff->length += length;
     } else {
         pt_buffer_reserve(buff, length);
+        
         memcpy(&buff->buff[buff->length],data,length);
         buff->length += length;
     }
 }
 
-qboolean pt_buffer_read(struct pt_buffer *buff,unsigned char *data, uint32_t length, qboolean remove)
+qboolean pt_buffer_read(struct pt_buffer *buff,void *data, uint32_t length, qboolean remove)
 {
     uint32_t copy_length;
     
@@ -167,7 +186,6 @@ qboolean pt_buffer_read(struct pt_buffer *buff,unsigned char *data, uint32_t len
     
     return true;
 }
-
 
 void DUMP(struct pt_buffer*buff)
 {

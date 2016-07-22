@@ -12,6 +12,7 @@ struct pt_table_node
 };
 
 
+
 struct pt_table
 {
     //表的头，一个数组，数组的大小为granularity
@@ -26,6 +27,8 @@ struct pt_table
     //这个表是否是new出来的，如果是则free掉
 	qboolean alloc;
 };
+
+typedef void (*pt_table_enum_cb)(struct pt_table* ptable, uint64_t id,void *ptr, void* user_arg);
 
 /*
     创建一个快速搜索表
@@ -57,5 +60,10 @@ void pt_table_erase(struct pt_table *ptable, uint64_t id);
     从表中查找一个数据
  */
 void* pt_table_find(struct pt_table *ptable, uint64_t id);
+
+/*
+    枚举整个table
+ */
+void pt_table_enum(struct pt_table *ptable, pt_table_enum_cb cb, void* user_arg);
 
 #endif

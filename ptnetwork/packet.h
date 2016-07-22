@@ -1,7 +1,7 @@
 #ifndef _PT_PACKET_INCLUED_H_
 #define _PT_PACKET_INCLUED_H_
 
-#include "proto.h"
+#include <ptnetwork/proto.h>
 
 
 
@@ -48,6 +48,6 @@ struct pt_buffer *pt_create_encrypt_package(RC4_KEY *ctx, uint32_t *serial,
 
 
 struct pt_buffer *pt_create_package(struct net_header hdr,
-                       unsigned char* data, uint32_t length);
+                       void* data, uint32_t length);
 
 #endif

@@ -1,10 +1,10 @@
 #ifndef _PT_SERVER_INCLUED_H_
 #define _PT_SERVER_INCLUED_H_
 
-#include "common.h"
-#include "buffer.h"
-#include "table.h"
-#include "packet.h"
+#include <ptnetwork/common.h>
+#include <ptnetwork/buffer.h>
+#include <ptnetwork/table.h>
+#include <ptnetwork/packet.h>
 
 struct pt_server;
 struct pt_sclient;
@@ -33,11 +33,21 @@ struct pt_sclient
     uint32_t serial;
     //rc4加密key
     RC4_KEY encrypt_ctx;
+    
+    //用户定义的数据
+    void *data;
 };
 
 typedef qboolean (*pt_server_on_connect)(struct pt_sclient *user);
 typedef void (*pt_server_on_receive)(struct pt_sclient *user, struct pt_buffer *buff);
 typedef void (*pt_server_on_disconnect)(struct pt_sclient *user);
+
+enum pt_server_state
+{
+    PT_STATE_NORMAL,
+    PT_STATE_INIT,
+    PT_STATE_STARTUP,
+};
 
 struct pt_server
 {
@@ -73,11 +83,15 @@ struct pt_server
     qboolean enable_encrypt;
     uint32_t encrypt_key[4];
     
+    //用户data
+    void *data;
     
-    qboolean is_startup;
+    enum pt_server_state state;
     
-    //服务器是否已经初始化
-    qboolean is_init;
+//    qboolean is_startup;
+//    
+//    //服务器是否已经初始化
+//    qboolean is_init;
     /*
         提供给libuv的回调函数
      */
@@ -127,6 +141,10 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path);
 
 //将数据追加到发送队列
 qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff);
+
+//发送数据到全部用户
+void pt_server_send_to_all(struct pt_server *server, struct pt_buffer *buff);
+
 //服务器请求断开一个用户的连接
 qboolean pt_server_disconnect_conn(struct pt_sclient *user);
 

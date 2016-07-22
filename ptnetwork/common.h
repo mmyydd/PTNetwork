@@ -9,11 +9,10 @@
 #include <unistd.h>
 #include <uv.h>
 #include <assert.h>
-
 #include <openssl/rc4.h>
 
-
-#include "def_types.h"
+#include <ptnetwork/def_types.h>
+#include <ptnetwork/ememory.h>
 
 
 
