@@ -8,7 +8,15 @@ SOURCES = buffer.c buffer_reader.c packet.c table.c crc32.c mymemory.c server.c 
 CFLAGS = -c -I$(OPENSSL)/include -I.
 CC = gcc
 
-OUTPUT_SHARE = out/libptnetwork.dylib
+ifeq ($(shell uname),Darwin)
+	SO_EXT := dylib
+else
+	SO_EXT := so
+	CFLAGS := -fPIC $(CFLAGS)
+endif
+
+
+OUTPUT_SHARE = out/libptnetwork.$(SO_EXT)
 OUTPUT = out/libptnetwork.a
 
 
