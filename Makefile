@@ -2,8 +2,8 @@ OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 INSTALL_DIR = /usr/local
 
-OBJECTS = buffer.o buffer_reader.o packet.o table.o crc32.o ememory.o server.o client.o error.o
-SOURCES = buffer.c buffer_reader.c packet.c table.c crc32.c ememory.c server.c client.c error.c
+OBJECTS = buffer.o buffer_reader.o packet.o table.o crc32.o mymemory.o server.o client.o error.o
+SOURCES = buffer.c buffer_reader.c packet.c table.c crc32.c mymemory.c server.c client.c error.c
 
 CFLAGS = -c -I$(OPENSSL)/include -I.
 CC = gcc
@@ -12,7 +12,7 @@ OUTPUT_SHARE = out/libptnetwork.dylib
 OUTPUT = out/libptnetwork.a
 
 
-PTNetwork.a : $(OBJECTS)
+$(OUTPUT) : $(OBJECTS)
 	mkdir -p out
 	ar cr $(OUTPUT) $(OBJECTS) 
 
@@ -36,3 +36,10 @@ install:
 	install -d ptnetwork $(INSTALL_DIR)/include/ptnetwork/
 	install ptnetwork/* $(INSTALL_DIR)/include/ptnetwork/
 	install out/* $(INSTALL_DIR)/lib/
+
+
+uninstall:
+	rm -rf $(INSTALL_DIR)/include/ptnetwork.h
+	rm -rf $(INSTALL_DIR)/include/ptnetwork
+	rm -rf $(INSTALL_DIR)/lib/$(OUTPUT)
+	rm -rf $(INSTALL_DIR)/lib/$(OUTPUT_SHARE)

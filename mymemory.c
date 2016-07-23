@@ -1,5 +1,5 @@
 #include <ptnetwork/common.h>
-#include <ptnetwork/ememory.h>
+#include <ptnetwork/mymemory.h>
 #include <ptnetwork/error.h>
 
 void *emalloc(size_t size, const char *function, const char *file, int line)

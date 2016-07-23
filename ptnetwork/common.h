@@ -12,7 +12,7 @@
 #include <openssl/rc4.h>
 
 #include <ptnetwork/def_types.h>
-#include <ptnetwork/ememory.h>
+#include <ptnetwork/mymemory.h>
 
 
 

@@ -1,54 +1,52 @@
 #include <ptnetwork/common.h>
 #include <ptnetwork/error.h>
 
-error_report_cb fatal_cb = NULL;
-error_report_cb error_cb = NULL;
-error_report_cb log_cb = NULL;
+error_report_cb error_callbacks[ERROR_LEVEL_TOTAL] = {NULL};
 
 void FATAL(const char *message, const char *function, const char *file, int line)
 {
-    printf("FATAL:%s\n",message);
-    if(fatal_cb){
-        fatal_cb(message,function,file,line);
+    if(error_callbacks[ERROR_LEVEL_FATAL])
+    {
+        error_callbacks[ERROR_LEVEL_FATAL](message,function,file,line);
     }
-    
-    abort();
 }
 
 void ERROR(const char *message, const char *function, const char *file, int line)
 {
-    printf("ERROR:%s\n",message);
-    
-    if(error_cb){
-        error_cb(message,function,file,line);
+    if(error_callbacks[ERROR_LEVEL_ERROR])
+    {
+        error_callbacks[ERROR_LEVEL_ERROR](message,function,file,line);
     }
 }
 
 void LOG(const char *message, const char *function, const char *file, int line)
 {
-    printf("LOG:%s\n",message);
-    
-    if(log_cb){
-        log_cb(message,function,file,line);
+    if(error_callbacks[ERROR_LEVEL_LOG])
+    {
+        error_callbacks[ERROR_LEVEL_LOG](message,function,file,line);
     }
 }
 
 void TRACE(const char *message, const char *function, const char *file, int line)
 {
-    printf("TRACE:%s\n",message);
+    if(error_callbacks[ERROR_LEVEL_TRACE])
+    {
+        error_callbacks[ERROR_LEVEL_TRACE](message,function,file,line);
+    }
+}
+
+void WARNING(const char *message, const char *function, const char *file, int line)
+{
+    if(error_callbacks[ERROR_LEVEL_WARNING])
+    {
+        error_callbacks[ERROR_LEVEL_WARNING](message,function,file,line);
+    }
 }
 
 
+void set_error_report(enum error_level_enum level, error_report_cb cb)
+{
+    assert(level >= ERROR_LEVEL_LOG && level <= ERROR_LEVEL_FATAL);
 
-void set_fatal_filter(error_report_cb cb)
-{
-    fatal_cb = cb;
-}
-void set_error_filter(error_report_cb cb)
-{
-    error_cb = cb;
-}
-void set_log_filter(error_report_cb cb)
-{
-    log_cb = cb;
+    error_callbacks[level] = cb;
 }

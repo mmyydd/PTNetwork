@@ -1,13 +1,5 @@
-//
-//  ememory.h
-//  agent
-//
-//  Created by yuanrui on 16/7/5.
-//  Copyright © 2016年 number201724. All rights reserved.
-//
-
-#ifndef ememory_h
-#define ememory_h
+#ifndef _MY_MEMORY_INCLUDED_H_ 
+#define _MY_MEMORY_INCLUDED_H_
 
 void *emalloc(size_t size, const char *function, const char *file, int line);
 void efree(void *ptr, const char *function, const char *file, int line);
