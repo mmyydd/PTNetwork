@@ -15,6 +15,11 @@
 #include <ptnetwork/mymemory.h>
 
 
+//windows mingw32 supports
+#ifdef _WIN32
+#undef ERROR
+#undef MEM_FREE
+#endif
 
 #define USER_DEFAULT_BUFF_SIZE 512
 
