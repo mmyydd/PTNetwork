@@ -102,7 +102,7 @@ static void pt_client_connect_cb(uv_connect_t* req, int status)
         client->state = PT_NO_CONNECT;
         MEM_FREE(req);
         if(client->on_connected){
-            client->on_connected(client, client->state);
+            client->on_connected(client, PT_CONNECT_FAILED);
         }
         return;
     }
