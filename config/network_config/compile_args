@@ -1,0 +1,1 @@
+g++ main.cpp ../../../PT_Proto/compiled/network_config.pb.cc -ljsoncpp -lprotobuf -I../../../PT_Proto/compiled/

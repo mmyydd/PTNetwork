@@ -1,0 +1,7 @@
+agent  -- 代理服务器
+database  -- 数据库服务器
+auth   -- 用户认证服务器
+
+lobby -- 大厅服务器
+match -- 比赛匹配
+chat -- 聊天服务器

@@ -1,0 +1,8 @@
+{
+	"port" : 27015,
+	"max_conn" : 10000,
+	"max_overstock" : 1000,
+	"max_keepalive_timeout" : 300,
+	"is_open_buffer_allocator" : true,
+	"buffer_allocator_cache_count" : 200000
+}
