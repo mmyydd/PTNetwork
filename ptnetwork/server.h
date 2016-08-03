@@ -14,7 +14,7 @@ struct pt_sclient
 {
     //用户唯一ID
     uint64_t id;
-    
+ 
     //服务器信息
     struct pt_server *server;
     
@@ -36,12 +36,18 @@ struct pt_sclient
     
     //用户定义的数据
     void *data;
+
+	//引用计数器
+	uint32_t ref_count;
 };
 
+typedef void (*pt_server_on_alloc_sclient)(struct pt_sclient *user);
+typedef void (*pt_server_on_free_sclient)(struct pt_sclient *user);
 typedef qboolean (*pt_server_on_connect)(struct pt_sclient *user);
 typedef void (*pt_server_on_receive)(struct pt_sclient *user, struct pt_buffer *buff);
 typedef void (*pt_server_on_disconnect)(struct pt_sclient *user);
-
+typedef void (*pt_server_warning_user)(struct pt_sclient *user);
+typedef void (*pt_server_error_notify)(struct pt_server *server, const char *function);
 enum pt_server_state
 {
     PT_STATE_NORMAL,
@@ -88,10 +94,6 @@ struct pt_server
     
     enum pt_server_state state;
     
-//    qboolean is_startup;
-//    
-//    //服务器是否已经初始化
-//    qboolean is_init;
     /*
         提供给libuv的回调函数
      */
@@ -113,11 +115,46 @@ struct pt_server
         当用户断开连接时执行
      */
     pt_server_on_disconnect on_disconnect;
+
+	/*
+	 * 用户警告函数
+	 * 出现非法数据或异常等通知
+	 * */
+	pt_server_warning_user warning_user;
+
+	//申请释放sclient结构的回调
+	pt_server_on_alloc_sclient on_alloc_sclient;
+	pt_server_on_free_sclient on_free_sclient;
+	
+	//服务器错误通知
+	pt_server_error_notify error_notify;
+
+	//服务器发送数据的压入弹出次数
+	uint64_t number_of_push_send;
+	uint64_t number_of_pop_send;
+
+	//服务器收到数据的压入弹出次数
+	uint64_t number_of_push_recv;
+	uint64_t number_of_pop_recv;
+
+	//服务器发送数据的字节统计
+	uint64_t number_of_send_bytes;
+	uint64_t number_of_recv_bytes;
+	
+	//服务器的启动时间
+	time_t start_time;
+	
+	//服务器上一个错误
+	int last_error;
 };
+
+uint32_t pt_sclient_ref_increment(struct pt_sclient *user);
+uint32_t pt_sclient_ref_decrement(struct pt_sclient *user);
 
 struct pt_server* pt_server_new();
 void pt_server_free(struct pt_server *srv);
 
+const char *pt_server_str_last_error(struct pt_server *server);
 
 //禁用或者启用Nagle算法
 void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay);

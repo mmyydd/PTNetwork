@@ -6,9 +6,8 @@
 
 #define ALIGN_SIZE(n,a) n % a == 0 ? n : ((n / a)+1) * a
 
-
-/*
-    缓冲区
+/**
+ * pt_buffer 流式缓冲区
  */
 struct pt_buffer
 {
@@ -34,6 +33,12 @@ struct pt_buffer_allocator
     struct pt_buffer *buff;
 };
 
+//获取pt_buffer的借出次数
+uint64_t pt_buffer_get_borrow_count();
+//获取pt_buffer的还回次数
+uint64_t pt_buffer_get_back_count();
+//获取pt_buffer的使用量
+uint64_t pt_buffer_get_use_count();
 
 //新增引用计数
 uint32_t pt_buffer_ref_increment(struct pt_buffer *buff);

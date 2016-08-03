@@ -4,6 +4,24 @@
 
 struct pt_buffer_allocator buffer_allocator = {0, 10000, false, NULL};
 
+uint64_t number_of_borrow = 0;
+uint64_t number_of_back = 0;
+uint64_t number_of_use_buffer = 0;
+
+
+uint64_t pt_buffer_get_borrow_count()
+{
+	return number_of_borrow;
+}
+uint64_t pt_buffer_get_back_count()
+{
+	return number_of_back;
+}
+uint64_t pt_buffer_get_use_count()
+{
+	return number_of_use_buffer;
+}
+
 uint32_t pt_buffer_ref_increment(struct pt_buffer *buff)
 {
     return ++buff->ref_count;
@@ -111,6 +129,8 @@ struct pt_buffer* pt_buffer_new(uint32_t length)
     
     pt_buffer_reserve(buff, length);
     pt_buffer_ref_increment(buff);
+	number_of_use_buffer++;
+	number_of_borrow++;
 
     return buff;
 };
@@ -125,6 +145,8 @@ void pt_buffer_free(struct pt_buffer *buff)
 
     if(ref_count == 0)
     {
+		number_of_use_buffer--;
+		number_of_back++;
         if(buffer_allocator.enable == false)
         {
             pt_buffer_release(buff);
