@@ -58,6 +58,10 @@ void pt_backend_close(struct pt_backend *be);
  * */
 void pt_backend_try_connect(struct pt_backend *be);
 
+/*
+ * 后端服务器是否已经成功建立了连接
+ * */
+qboolean pt_backend_is_connected(struct pt_backend *be);
 
 /*
  * 发送数据到后端的服务

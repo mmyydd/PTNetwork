@@ -17,12 +17,12 @@ struct pt_cluster *get_dispatch()
 
 void pt_dispatch_disconnect(struct pt_cluster *cluster, struct pt_sclient *user)
 {
-
+	pt_cluster_ref_dec(cluster);
 }
 
 void pt_dispatch_connect(struct pt_cluster *cluster, struct pt_sclient *user)
 {
-
+	pt_cluster_ref_inc(cluster);
 }
 //派遣客户端发送到网关服务器的数据
 void pt_dispatch_receive(struct pt_cluster *cluster, struct pt_sclient *user,
@@ -44,13 +44,13 @@ void pt_dispatch_receive(struct pt_cluster *cluster, struct pt_sclient *user,
 
 	data = buffer_reader_cur_pos(&reader);
 	length = buffer_reader_over_size(&reader);
-
+	
 	server_id = header.id / SERVER_ID_SPLIT;
-
 	if(server_id == 0){
 		//无效的服务器id
 		return;
 	}
+
 	ed = pt_cluster_find_backend(cluster, server_id);
 	
 	//找不到后端服务器
@@ -74,9 +74,9 @@ void pt_dispatch_send(struct pt_cluster *cluster, struct pt_backend *ed,
 	uint32_t length;
 	unsigned char *buff_data;
 	struct pt_sclient *user;
-	struct pt_server *listener;
+	//struct pt_server *listener;
 
-	listener = get_listener();
+	//listener = get_listener();
 	buffer_reader_init(&reader, buff);
 	buffer_reader_read(&reader, &header, sizeof(header));
 	buffer_reader_read(&reader, &user_id, sizeof(user_id));
@@ -130,6 +130,6 @@ void pt_dispatch_update(uv_loop_t *loop, BackendC *config)
 void pt_dispatch_active()
 {
 	if(g_dispatch == NULL) return;
-
+	printf("active\n");
 	pt_cluster_active(g_dispatch);
 }

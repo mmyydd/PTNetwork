@@ -1,29 +1,53 @@
 #include "common.h"
 #include "backend.h"
 #include "cluster.h"
+#include "dispatch.h"
 
 void pt_cluster_notify_connection_state(struct pt_cluster *cluster,
 		struct pt_backend *be, enum pt_client_state state)
 {
+	char msg[255];
+	if(state == PT_CONNECTED)
+	{
+		sprintf(msg, "try connect to %s => %s success",
+				be->descriptor,
+				be->hostname);
 
+		LOG(msg, __FUNCTION__, __FILE__, __LINE__);
+	}
+	else if (state == PT_NO_CONNECT)
+	{
+		sprintf(msg, "try connect to %s => %s fail or disconnected",
+				be->descriptor,
+				be->hostname);
+
+		LOG(msg, __FUNCTION__, __FILE__, __LINE__);
+	}
 }
 
 void pt_cluster_notify_receive_data(struct pt_cluster *cluster,
 		struct pt_backend *be, struct pt_buffer *buff)
 {
-
+	pt_dispatch_send(cluster, be,buff);
 }
 
 static void pt_cluster_try_fix_connection(struct pt_cluster *cluster)
 {
+	char msg[255];
 	struct pt_backend *current = cluster->servers;
 
 	while(current)
 	{
 		if(current->conn->state == PT_NO_CONNECT)
 		{
+			sprintf(msg, "try connect:%s to %s",current->descriptor,
+					current->hostname);
+
+			LOG(msg, __FUNCTION__, __FILE__, __LINE__);
 			pt_backend_try_connect(current);
 		}
+
+		current = current->next;
 	}
 }
 
@@ -61,12 +85,13 @@ void pt_cluster_init(struct pt_cluster *cluster, uv_loop_t *loop, BackendC* conf
 		sprintf(msg,"uv_timer_init failed reason:%s", uv_strerror(uv_err));
 		ERROR(msg, __FUNCTION__,__FILE__,__LINE__);
 	}
-
+	cluster->timer.data = cluster;
 	for( size_t i = 0; i < config->n_servers; i ++)
 	{
 		Backend *backendConfig = config->servers[i];
 		struct pt_backend *backend = pt_backend_new();
 
+		printf("server_type:%d\n", backendConfig->server_type);
 		pt_backend_init(backend, cluster, 
 				backendConfig->server_name,
 				backendConfig->server_id,
@@ -78,7 +103,7 @@ void pt_cluster_init(struct pt_cluster *cluster, uv_loop_t *loop, BackendC* conf
 		sprintf(msg,"create cluster:backend %s  adr:%s",
 				backendConfig->server_name,
 				backendConfig->server_host);
-
+		
 		LOG(msg, __FUNCTION__,__FILE__,__LINE__);
 
 		backend->next = cluster->servers;
@@ -96,6 +121,7 @@ qboolean pt_cluster_is_connected(struct pt_cluster *cluster)
 		{
 			return false;
 		}
+		current = current->next;
 	}
 
 	return true;
@@ -123,7 +149,6 @@ void pt_cluster_active(struct pt_cluster *cluster)
 		return;
 	}
 
-	//建立与后端服务器的连接
 	pt_cluster_try_fix_connection(cluster);
 
 	//添加一个检测用的定时器
@@ -157,12 +182,58 @@ void pt_cluster_close(struct pt_cluster *cluster)
 	cluster->servers = NULL;
 }
 
-uint32_t pt_cluster_client_ref_inc(struct pt_cluster *cluster)
+uint32_t pt_cluster_ref_inc(struct pt_cluster *cluster)
 {
 	return ++cluster->ref_count;
 }
 
-uint32_t pt_cluster_client_ref_dec(struct pt_cluster *cluster)
+uint32_t pt_cluster_ref_dec(struct pt_cluster *cluster)
 {
 	return --cluster->ref_count;
+}
+
+
+
+struct pt_backend *pt_cluster_find_backend(struct pt_cluster *cluster,
+		uint32_t server_id)
+{
+	struct pt_backend *ed = NULL;
+
+	ed = cluster->servers;
+
+	while(ed)
+	{
+		if(ed->server_id == server_id)
+		{
+			return ed;
+		}
+		ed = ed->next;
+	}
+
+	return NULL;
+}
+
+
+
+void pt_cluster_send(struct pt_cluster *cluster, struct pt_backend *ed,
+struct pt_sclient *user, struct net_header header, void *data,
+uint32_t length)
+{
+	uint32_t buff_size = sizeof(struct net_header) + length + sizeof(uint64_t);
+
+	if(pt_backend_is_connected(ed) == false)
+	{
+		printf("backend server not connected\n");
+		return;
+	}
+
+	struct pt_buffer *buff = pt_buffer_new(buff_size);
+
+	header.length = buff_size;
+	pt_buffer_write(buff, &header, sizeof(struct net_header));
+	pt_buffer_write(buff, &user->id, sizeof(uint64_t));
+	pt_buffer_write(buff, data, length);
+
+
+	pt_backend_send(ed, buff);
 }

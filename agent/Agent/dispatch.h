@@ -7,6 +7,9 @@ qboolean pt_dispatch_succeed();
 struct pt_cluster *get_dispatch();
 
 
+void pt_dispatch_disconnect(struct pt_cluster *cluster, struct pt_sclient *user);
+
+void pt_dispatch_connect(struct pt_cluster *cluster, struct pt_sclient *user);
 /**
  * 派遣客户端发送到网关服务器的数据
  */

@@ -6,7 +6,7 @@
 #include "backend.h"
 #include "cluster.h"
 
-void backend_connected(struct pt_client *conn, enum pt_client_state state)
+static void backend_connected(struct pt_client *conn, enum pt_client_state state)
 {
 	struct pt_backend *be = conn->data;
 	struct pt_cluster *cluster = be->cluster;
@@ -14,7 +14,7 @@ void backend_connected(struct pt_client *conn, enum pt_client_state state)
 	pt_cluster_notify_connection_state(cluster, be, state);
 }
 
-void backend_receive(struct pt_client *conn, struct pt_buffer *buff)
+static void backend_receive(struct pt_client *conn, struct pt_buffer *buff)
 {
 	struct pt_backend *be = conn->data;
 	struct pt_cluster *cluster = be->cluster;
@@ -22,7 +22,7 @@ void backend_receive(struct pt_client *conn, struct pt_buffer *buff)
 	pt_cluster_notify_receive_data(cluster, be,buff);	
 }
 
-void backend_disconnected(struct pt_client *conn)
+static void backend_disconnected(struct pt_client *conn)
 {
 	struct pt_backend *be = conn->data;
 	struct pt_cluster *cluster = be->cluster;
@@ -70,11 +70,15 @@ void pt_backend_try_connect(struct pt_backend *be)
 		//投递连接请求
 		if(be->is_pipe)
 		{
+			printf("try connect pipe %s\n", be->hostname);
 			pt_client_connect_pipe(be->conn, be->hostname);
 		}
 		else
 		{
-			pt_client_connect(be->conn, be->hostname, be->port);
+			printf("try connect to %s:%i\n", be->hostname,be->port);
+			if(pt_client_connect(be->conn, be->hostname, be->port)){
+				
+			}
 		}
 	}
 }
@@ -82,6 +86,13 @@ void pt_backend_try_connect(struct pt_backend *be)
 void pt_backend_send(struct pt_backend *be, struct pt_buffer *buff)
 {
 	pt_client_send(be->conn, buff);
+}
+/*
+ * 关闭一个后端服务处理点
+ * */
+void pt_backend_close(struct pt_backend *be)
+{
+	pt_client_disconnect(be->conn);
 }
 
 qboolean pt_backend_is_connected(struct pt_backend *be)

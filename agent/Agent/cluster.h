@@ -53,6 +53,8 @@ void pt_cluster_active(struct pt_cluster *cluster);
 
 void pt_cluster_close(struct pt_cluster *cluster);
 
+uint32_t pt_cluster_ref_inc(struct pt_cluster *cluster);
+uint32_t pt_cluster_ref_dec(struct pt_cluster *cluster);
 
 struct pt_backend *pt_cluster_find_backend(struct pt_cluster *cluster,
 		uint32_t server_id);

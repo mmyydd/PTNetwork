@@ -1,5 +1,3 @@
-
-
 OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 PROTOBUF = /usr/local/opt/protobuf-c
@@ -12,8 +10,7 @@ OBJECTS = backend.o cluster.o listener.o dispatch.o main.o
 CC ?= gcc
 
 CFLAGS = -I$(OPENSSL)/include -I$(LIBUV)/include -I$(PROTOBUF)/include -I$(USER_INCLUDE_PROTO) -I"../../common/"
-LINK_FLAGS = -L$(OPENSSL)/lib -L$(LIBUV)/lib -L$(PROTOBUF)/lib -luv -lcrypto -lprotobuf-c -lptnetwork
-
+LINK_FLAGS = -L$(USER_INCLUDE_PROTO) -L$(OPENSSL)/lib -L$(LIBUV)/lib -L$(PROTOBUF)/lib -luv -lcrypto -lprotobuf-c -lptnetwork -lproto
 
 
 $(OUTPUT) : $(OBJECTS)
@@ -22,3 +19,7 @@ $(OUTPUT) : $(OBJECTS)
 $(OBJECTS) : $(SOURCES)
 	$(CC) -c $(CFLAGS) $(SOURCES)
 
+clean:
+	rm -rf *.o
+	rm -rf *.a
+	rm -rf $(OUTPUT)
