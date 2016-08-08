@@ -234,6 +234,5 @@ uint32_t length)
 	pt_buffer_write(buff, &user->id, sizeof(uint64_t));
 	pt_buffer_write(buff, data, length);
 
-
 	pt_backend_send(ed, buff);
 }
