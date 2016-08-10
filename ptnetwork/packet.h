@@ -42,11 +42,16 @@ struct net_header pt_create_nethdr(uint16_t id);
 
 qboolean pt_decrypt_package(uint32_t serial,RC4_KEY *ctx, struct pt_buffer *buff);
 
-
+/*
+ * 创建一个加密数据包
+ * data == NULL的时候则不写入加密数据
+ * */
 struct pt_buffer *pt_create_encrypt_package(RC4_KEY *ctx, uint32_t *serial,
                                struct net_header hdr,unsigned char* data, uint32_t length);
 
-
+/*
+ * data == NULL时不写入数据
+ * */
 struct pt_buffer *pt_create_package(struct net_header hdr,
                        void* data, uint32_t length);
 

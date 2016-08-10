@@ -112,8 +112,12 @@ struct pt_buffer * pt_create_encrypt_package(RC4_KEY *ctx, uint32_t *serial,
     buff = pt_buffer_new(256);
     pt_buffer_write(buff, (unsigned char*)&hdr, sizeof(struct net_header));
     pt_buffer_write(buff, (unsigned char*)serial, sizeof(uint32_t));
-    pt_buffer_write(buff, data, length);
     
+	if(data != NULL)
+	{
+		pt_buffer_write(buff, data, length);
+	}
+
     new_hdr = (struct net_header *)buff->buff;
     unsigned char *encrypt_beg = pt_get_packet_buffer(buff);
     uint32_t encrypt_size = pt_get_packet_size(buff);
@@ -134,7 +138,8 @@ struct pt_buffer *pt_create_package(struct net_header hdr,void* data, uint32_t l
     struct net_header *new_hdr;
     
     pt_buffer_write(buff, (unsigned char*)&hdr, sizeof(struct net_header));
-    pt_buffer_write(buff, data, length);
+    
+	if(data != NULL) pt_buffer_write(buff, data, length);
     
     new_hdr = (struct net_header *)buff->buff;
     new_hdr->length = buff->length;
