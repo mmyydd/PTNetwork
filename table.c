@@ -164,15 +164,19 @@ uint32_t pt_table_size(struct pt_table *ptable)
 void pt_table_enum(struct pt_table *ptable, pt_table_enum_cb cb,void *user_arg)
 {
     uint32_t i;
-    struct pt_table_node *current = NULL;
-    
+    struct pt_table_node *current, *temp;
+
+	current = NULL;
+	temp = NULL;
+
     for(i = 0; i <ptable->granularity; i++)
     {
         current = ptable->head[i];
-        
+
         while(current){
+			temp = current->next;
             cb(ptable, current->id, current->ptr, user_arg);
-            current = current->next;
+            current = temp;
         }
     }
 }

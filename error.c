@@ -1,5 +1,6 @@
 #include <ptnetwork/common.h>
 #include <ptnetwork/error.h>
+#include <stdarg.h>
 
 error_report_cb error_callbacks[ERROR_LEVEL_TOTAL] = {NULL};
 
@@ -71,4 +72,37 @@ void set_error_report(enum error_level_enum level, error_report_cb cb)
     assert(level >= ERROR_LEVEL_LOG && level <= ERROR_LEVEL_FATAL);
 
     error_callbacks[level] = cb;
+}
+
+
+void private_WriteLog(int level, const char *function, const char *file, int line, const char *fmt, ...)
+{
+	static char strbuf[8192];
+	va_list args;
+
+	va_start(args, fmt);
+
+	vsnprintf(strbuf, sizeof(strbuf), fmt, args);
+
+	switch(level)
+	{
+		case ERROR_LEVEL_ERROR:
+			ERROR(strbuf, function, file, line);
+			break;
+		case ERROR_LEVEL_LOG:
+			LOG(strbuf, function, file, line);
+			break;
+		case ERROR_LEVEL_FATAL:
+			FATAL(strbuf, function, file, line);
+			break;
+		case ERROR_LEVEL_TRACE:
+			TRACE(strbuf, function, file, line);
+			break;
+		case ERROR_LEVEL_WARNING:
+			WARNING(strbuf, function, file, line);
+			break;
+		default:
+			FATAL(strbuf, function, file, line);
+			break;
+	}
 }

@@ -53,17 +53,12 @@ enum protocol_enum_id
 	//传送JSON值到另外一端。
 	ID_TRANSMIT_JSON,
 
-    //内网服务器交互封包
-	ID_RESERVE_TRANSMIT_ENUM = 10000,
+	//通知服务器用户连接断开的封包
+	ID_USER_CONNECTED,
+	ID_USER_DISCONNECTED,
 
-    //客户端请求包
-    ID_USER_CLIENT_ENUM = 20000,
-    
-	//游戏服务器请求包
-	ID_USER_SERVER_ENUM = 30000,
-    
     //其他预留封包
-    ID_USER_PACKET_ENUM = 40000,
+    ID_USER_PACKET_ENUM = 5000,
 };
 
 /*
