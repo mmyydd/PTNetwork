@@ -45,6 +45,7 @@ uint32_t pt_buffer_ref_increment(struct pt_buffer *buff);
 uint32_t pt_buffer_ref_decrement(struct pt_buffer *buff);
 
 //申请一个新的pt_buffer 如果buffer_allocator为enable，则使用buffer_allocator申请
+//length 可以被设置为0
 struct pt_buffer* pt_buffer_new(uint32_t length);
 //释放一个pt_buffer 如果已启用buffer_allocator 则使用buffer_allocator释放
 void pt_buffer_free(struct pt_buffer *buff);

@@ -113,6 +113,11 @@ struct pt_buffer* pt_buffer_new(uint32_t length)
 {
     struct pt_buffer* buff = NULL;
 
+	if(length == 0)
+	{
+		length = PAGESIZE;
+	}
+
     if(buffer_allocator.enable == false)
     {
         buff = pt_buffer_create(length);
