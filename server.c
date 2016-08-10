@@ -425,9 +425,10 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
 
 void pt_server_set_encrypt(struct pt_server *server, const uint32_t encrypt_key[4])
 {
+	int i;
     server->enable_encrypt = true;
     
-    for(int i =0;i<4;i++)
+    for(i =0;i < 4; i++)
     {
         server->encrypt_key[i] = encrypt_key[i];
     }
