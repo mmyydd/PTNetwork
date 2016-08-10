@@ -3,15 +3,17 @@
 
 uv_loop_t *uv_loop;
 
+	uv_timer_t timer;
 
 struct pt_client *conn;
 const uint32_t RC4Key[4] = {0x42970C86, 0xA0B3A057, 0x51B97B3C, 0x70F8891E};
 
+void on_timer(uv_timer_t *tm);
 void on_connect_notify(struct pt_client *conn,enum pt_client_state state)
 {
 	if(state == PT_CONNECTED)
 	{
-
+		uv_timer_start(&timer, on_timer, 1000, 1000);
 		printf("connected\n");
 	}
 
@@ -45,7 +47,8 @@ void on_receive(struct pt_client *user, struct pt_buffer *buff)
 
 void on_disconnect(struct  pt_client *conn)
 {
-	
+	uv_timer_stop(&timer);
+	printf("server disconnected....\n");	
 }
 
 uint32_t serial = 0;
@@ -61,22 +64,21 @@ void on_timer(uv_timer_t *tm)
 		sprintf(text,"string:%u",serial);
 		buff = pt_create_encrypt_package(&conn->encrypt_ctx,&conn->serial, header, (unsigned char*)&text, strlen(text) +1);
 
-		//printf("send encrypt package:%d   %u\n",pt_client_send(conn, buff), ++serial);
+		printf("send encrypt package:%d   %u\n",pt_client_send(conn, buff), ++serial);
 	}
 }
 
 
 int main(int argc ,char *argv[])
 {
-	uv_timer_t timer;
-
 	uv_loop = uv_default_loop();
 
 	conn = pt_client_new();
 
 	uv_timer_init(uv_loop, &timer);
 
-	uv_timer_start(&timer, on_timer, 1, 1);
+	//uv_timer_start(&timer, on_timer, 1, 1);
+
 
 	pt_client_init(uv_loop, conn, on_connect_notify, on_receive, on_disconnect);
 

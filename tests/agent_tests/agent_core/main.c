@@ -23,7 +23,18 @@ void on_receive(struct pt_sclient *user, struct pt_buffer *buff)
 	buffer_reader_init(&reader, buff);
 	buffer_reader_read(&reader, &header, sizeof(struct net_header));
 	buffer_reader_read(&reader, &user_id, sizeof(user_id));
-	
+
+	if(header.id == ID_USER_CONNECTED)
+	{
+		printf("UserConnected:%llu\n", user_id);
+		return;
+	}	
+	if(header.id == ID_USER_DISCONNECTED)
+	{
+		printf("UserDisconnected:%llu\n", user_id);
+		return;
+	}
+	printf("receive id:%d\n", header.id);
 	data = buffer_reader_cur_pos(&reader);
 	length = buffer_reader_over_size(&reader);
 
