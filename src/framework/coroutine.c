@@ -1,4 +1,4 @@
-#include <ptnetwork.h>
+#include "common.h"
 #include "coroutine.h"
 
 struct pt_coroutine_user* pt_coroutine_user_new()
@@ -17,7 +17,6 @@ void pt_coroutine_user_free(struct pt_coroutine_user *user)
 }
 static qboolean pt_routine_on_new_connection()
 {
-	printf("agent connected...\n");
 	return true;
 }
 
@@ -44,7 +43,6 @@ static void pt_routine_on_received(struct pt_sclient *user, struct pt_buffer *bu
 		coroutine_user->user = user;
 		coroutine_user->user_id = user_id;
 		pt_table_insert(routine->users, user_id, coroutine_user);
-		printf("connected: users count:%u\n", routine->users->size);
 		if(routine->on_connected) routine->on_connected(routine, coroutine_user);
 	}
 	else if(hdr.id == ID_USER_DISCONNECTED)
@@ -55,7 +53,6 @@ static void pt_routine_on_received(struct pt_sclient *user, struct pt_buffer *bu
 		{
 			if(routine->on_disconnected) routine->on_disconnected(routine, coroutine_user);
 			pt_table_erase(routine->users, user_id);
-		printf("disconnected: users count:%u\n", routine->users->size);
 			pt_coroutine_user_free(coroutine_user);
 		}
 	}
@@ -71,21 +68,15 @@ static void pt_routine_remove_callback(struct pt_table *table, uint64_t id, void
 	struct pt_coroutine_user *user = data;
 	struct pt_sclient *net_user = arg;
 
-	printf("remove callback:%llu\n",id);
 	if(user->user == net_user)
 	{
-		printf("erase user:%llu\n", id);
 		pt_table_erase(table, id);
 	}
 }
 static void pt_routine_on_disconnected(struct pt_sclient *user)
 {
 	struct pt_coroutine *routine = user->server->data;
-
-	printf("begin enum\n");
 	pt_table_enum(routine->users, pt_routine_remove_callback, user);
-
-	printf("agent disconencted\n");
 }
 
 

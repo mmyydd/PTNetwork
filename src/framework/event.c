@@ -1,11 +1,11 @@
-#include <ptnetwork.h>
+#include "common.h"
 #include "event.h"
 
 
 static struct pt_events *g_events = NULL;
 
 
-void pt_event_register(int event_id, pt_event_cb cb)
+void pt_event_register(int event_id, void* data, pt_event_cb cb)
 {
 	struct pt_events *ev = MEM_MALLOC(sizeof(struct pt_events));
 	bzero(ev, sizeof(struct pt_events));
@@ -13,8 +13,8 @@ void pt_event_register(int event_id, pt_event_cb cb)
 	ev->event_id = event_id;
 	ev->cb = cb;
 	ev->next = g_events;
+	ev->data = data;
 	g_events = ev;
-
 }
 
 
@@ -34,7 +34,7 @@ void pt_event_dispatch(int event_id, void *arg)
 
 
 
-void pt_event_unregister(int event_id, pt_event_cb cb)
+void pt_event_unregister(int event_id, void *data, pt_event_cb cb)
 {
 	struct pt_events *prev, *next;
 
@@ -43,7 +43,7 @@ void pt_event_unregister(int event_id, pt_event_cb cb)
 
 	while(next)
 	{
-		if(next->cb == cb && next->event_id == event_id)
+		if(next->cb == cb && next->event_id == event_id && next->data == data)
 		{
 			if(prev)
 			{

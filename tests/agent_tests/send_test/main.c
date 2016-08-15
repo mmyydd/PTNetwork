@@ -83,7 +83,7 @@ int main(int argc ,char *argv[])
 	pt_client_init(uv_loop, conn, on_connect_notify, on_receive, on_disconnect);
 
 	pt_client_set_encrypt(conn, RC4Key);
-	pt_client_connect(conn,"127.0.0.1",20140); 
+	pt_client_connect(conn,"127.0.0.1",27015); 
 
 	uv_run(uv_loop, UV_RUN_DEFAULT);
 	return 0;
