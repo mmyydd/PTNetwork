@@ -187,4 +187,7 @@ qboolean pt_server_disconnect_conn(struct pt_sclient *user);
 
 //关闭服务器
 void pt_server_close(struct pt_server *server);
+
+//关闭并释放服务器
+void pt_server_close_free(struct pt_server *server);
 #endif

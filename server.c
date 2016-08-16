@@ -130,6 +130,12 @@ static void pt_server_on_close_listener(uv_handle_t *handle)
     server->state = PT_STATE_NORMAL;
 }
 
+static void pt_server_on_close_free(uv_handle_t *handle)
+{
+    struct pt_server *server = handle->data;
+	server->state = PT_STATE_NORMAL;
+	pt_server_free(server);
+}
 /*
  libuv的数据包收到函数
  
@@ -306,8 +312,6 @@ struct pt_server* pt_server_new()
     
     return server;
 }
-
-
 
 void pt_server_free(struct pt_server *srv)
 {
@@ -514,7 +518,12 @@ void pt_server_close(struct pt_server *server)
     pt_table_clear(server->clients);
     uv_close((uv_handle_t*)&server->listener, pt_server_on_close_listener);
 }
-
+void pt_server_close_free(struct pt_server *server)
+{
+    pt_table_enum(server->clients, pt_server_close_all_cb, server);
+    pt_table_clear(server->clients);
+    uv_close((uv_handle_t*)&server->listener, pt_server_on_close_free);
+}
 qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 {
     if(user->connected){
