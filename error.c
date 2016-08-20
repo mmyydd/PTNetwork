@@ -79,9 +79,7 @@ void private_WriteLog(int level, const char *function, const char *file, int lin
 {
 	static char strbuf[8192];
 	va_list args;
-
 	va_start(args, fmt);
-
 	vsnprintf(strbuf, sizeof(strbuf), fmt, args);
 
 	switch(level)
@@ -105,4 +103,15 @@ void private_WriteLog(int level, const char *function, const char *file, int lin
 			FATAL(strbuf, function, file, line);
 			break;
 	}
+}
+
+
+void WriteLog(const char *fmt, ...)
+{
+	static char strbuf[8192];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(strbuf, sizeof(strbuf), fmt, args);
+
+	LOG(strbuf, __FUNCTION__, __FILE__, __LINE__);
 }

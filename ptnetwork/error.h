@@ -32,8 +32,8 @@ void set_error_report(enum error_level_enum level, error_report_cb cb);
 
 
 void private_WriteLog(int level, const char *function, const char *file, int line, const char *fmt, ...);
+void WriteLog(const char *fmt, ...);
 
-#define WriteLog(fmt, args) private_WriteLog(ERROR_LEVEL_LOG, __FUNCTION__, __FILE__, __LINE__, fmt, args)
 
 #define FATAL_MEMORY_ERROR() { \
         FATAL("Allocate Memory Failed", __FUNCTION__, __FILE__, __LINE__); \

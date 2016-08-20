@@ -127,13 +127,15 @@ static void pt_server_close_conn(struct pt_sclient *user, qboolean remove)
 static void pt_server_on_close_listener(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-    server->state = PT_STATE_NORMAL;
+    server->state = PT_STATE_INITIALIZED;
+	if(server->on_close) server->on_close(server, false);
 }
 
 static void pt_server_on_close_free(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-	server->state = PT_STATE_NORMAL;
+	server->state = PT_STATE_INITIALIZED;
+	if(server->on_close) server->on_close(server, true);
 	pt_server_free(server);
 }
 /*
@@ -281,7 +283,7 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     pt_table_insert(server->clients, user->id, user);
     
     //开始读取网络数据
-    server->last_error = uv_read_start(&user->sock.stream, pt_server_alloc_buf, server->read_cb);
+    server->last_error = uv_read_start(&user->sock.stream, pt_server_alloc_buf, pt_server_read_cb);
     
 
     if( server->last_error != 0 )
@@ -304,24 +306,23 @@ struct pt_server* pt_server_new()
     server->clients = pt_table_new();
     
     //初始化libuv的回调函数
-    server->state = PT_STATE_NORMAL;
-    server->connection_cb = pt_server_connection_cb;
-    server->read_cb = pt_server_read_cb;
-    server->write_cb = pt_server_write_cb;
-    server->number_of_max_send_queue = 50;
+    server->state = PT_STATE_CREATED;
+    //server->connection_cb = pt_server_connection_cb;
+    //server->read_cb = pt_server_read_cb;
+    //server->write_cb = pt_server_write_cb;
+    server->number_of_max_send_queue = NUMBER_MAX_SEND_QUEUE;
     
     return server;
 }
 
 void pt_server_free(struct pt_server *srv)
 {
-    if(srv->state != PT_STATE_NORMAL){
+    if(srv->state == PT_STATE_RUNNING){
         FATAL("server not shutdown", __FUNCTION__, __FILE__, __LINE__);
 		return;
     }
     
     pt_table_free(srv->clients);
-    
     MEM_FREE(srv);
 }
 
@@ -333,7 +334,7 @@ void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay)
 void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int keep_alive_delay,pt_server_on_connect on_conn,
                         pt_server_on_receive on_receive, pt_server_on_disconnect on_disconnect)
 {
-    if(server->state != PT_STATE_NORMAL){
+    if(server->state != PT_STATE_CREATED){
         FATAL("server already initialize",__FUNCTION__,__FILE__,__LINE__);
         return;
     }
@@ -345,17 +346,16 @@ void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int
     server->on_disconnect = on_disconnect;
     server->keep_alive_delay = keep_alive_delay;
     
-    server->state = PT_STATE_INIT;
+    server->state = PT_STATE_CREATED;
 }
 
 qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port)
 {
     struct sockaddr_in adr;
     
-    
-    if(server->state == PT_STATE_NORMAL)
+    if(server->state != PT_STATE_INITIALIZED)
     {
-        FATAL("server not initialize",__FUNCTION__,__FILE__,__LINE__);
+		if(server->error_notify) server->error_notify(server, "server state not initialized");
         return false;
     }
     
@@ -377,23 +377,23 @@ qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t po
         return false;
     }
     
-    server->last_error = uv_listen((uv_stream_t*)&server->listener, SOMAXCONN, server->connection_cb);
+    server->last_error = uv_listen((uv_stream_t*)&server->listener, SOMAXCONN, pt_server_connection_cb);
     if(server->last_error != 0){
 		if(server->error_notify) server->error_notify(server, "pt_server_start::uv_listen");
         return false;
     }
 
 	server->start_time = time(NULL);	
-    server->state = PT_STATE_STARTUP;
+    server->state = PT_STATE_RUNNING;
     return true;
 }
 
 
 qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
 {
-    if(server->state == PT_STATE_NORMAL)
+    if(server->state != PT_STATE_INITIALIZED)
     {
-        FATAL("server not initialize",__FUNCTION__,__FILE__,__LINE__);
+		if(server->error_notify) server->error_notify(server, "server state not initialized");
         return false;
     }
     
@@ -413,7 +413,7 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
         return false;
     }
     
-    server->last_error = uv_listen(&server->listener.stream, SOMAXCONN, server->connection_cb);
+    server->last_error = uv_listen(&server->listener.stream, SOMAXCONN, pt_server_connection_cb);
     if(server->last_error != 0){
 
 		if(server->error_notify) server->error_notify(server, "pt_server_start_pipe::uv_listen");
@@ -422,7 +422,7 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
     
 
 	server->start_time = time(NULL);	
-    server->state = PT_STATE_STARTUP;
+    server->state = PT_STATE_RUNNING;
     return true;
 }
 
@@ -474,8 +474,7 @@ qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
 
 	server->number_of_push_send++;
 
-
-	server->last_error = uv_write(&wreq->req, (uv_stream_t*)&user->sock, &wreq->buf, 1, server->write_cb);
+	server->last_error = uv_write(&wreq->req, (uv_stream_t*)&user->sock, &wreq->buf, 1, pt_server_write_cb);
 
 	if (user->server->last_error) {
 
@@ -518,12 +517,14 @@ void pt_server_close(struct pt_server *server)
     pt_table_clear(server->clients);
     uv_close((uv_handle_t*)&server->listener, pt_server_on_close_listener);
 }
+
 void pt_server_close_free(struct pt_server *server)
 {
     pt_table_enum(server->clients, pt_server_close_all_cb, server);
     pt_table_clear(server->clients);
     uv_close((uv_handle_t*)&server->listener, pt_server_on_close_free);
 }
+
 qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 {
     if(user->connected){

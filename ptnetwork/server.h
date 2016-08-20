@@ -9,6 +9,8 @@
 struct pt_server;
 struct pt_sclient;
 
+//默认的最大发送队列/用户
+#define NUMBER_MAX_SEND_QUEUE 100
 
 struct pt_sclient
 {
@@ -48,12 +50,20 @@ typedef void (*pt_server_on_receive)(struct pt_sclient *user, struct pt_buffer *
 typedef void (*pt_server_on_disconnect)(struct pt_sclient *user);
 typedef void (*pt_server_warning_user)(struct pt_sclient *user);
 typedef void (*pt_server_error_notify)(struct pt_server *server, const char *function);
+typedef void (*pt_server_on_close)(struct pt_server *server, qboolean is_free);
+
 enum pt_server_state
 {
-    PT_STATE_NORMAL,
-    PT_STATE_INIT,
-    PT_STATE_STARTUP,
+	//结构创建完成后的状态
+	PT_STATE_CREATED,
+	//结构初始化后的状态
+	PT_STATE_INITIALIZED,
+	//服务器正在执行中
+    PT_STATE_RUNNING,
 };
+
+//服务器已经被Shutdown
+#define PT_STATE_SHUTDOWN PT_STATE_INITIALIZED
 
 struct pt_server
 {
@@ -97,9 +107,12 @@ struct pt_server
     /*
         提供给libuv的回调函数
      */
-    uv_write_cb write_cb;
-    uv_read_cb read_cb;
-    uv_connection_cb connection_cb;
+    //uv_write_cb write_cb;
+    //uv_read_cb read_cb;
+    //uv_connection_cb connection_cb;
+	//
+	
+	pt_server_on_close on_close;
     
     /*
         当用户建立连接到服务器

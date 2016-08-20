@@ -78,6 +78,10 @@ void pt_client_free(struct pt_client *client);
 //初始化一个pt_client结构，设置回调函数等
 void pt_client_init(uv_loop_t *loop, struct pt_client *client, pt_cli_on_connected on_connected, pt_cli_on_receive on_receive, pt_cli_on_disconnected on_disconnected);
 
+void inline pt_client_init_v2(struct pt_client *client, uv_loop_t *loop,pt_cli_on_connected on_connected, pt_cli_on_receive on_receive, pt_cli_on_disconnected on_disconnected)
+{
+	pt_client_init(loop, client,on_connected, on_receive, on_disconnected);
+}
 //连接服务器
 qboolean pt_client_connect(struct pt_client *client, const char *host, uint16_t port);
 qboolean pt_client_connect_pipe(struct pt_client *client, const char *path);
