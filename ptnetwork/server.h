@@ -203,4 +203,7 @@ void pt_server_close(struct pt_server *server);
 
 //关闭并释放服务器
 void pt_server_close_free(struct pt_server *server);
+
+//查找一个客户端用户
+struct pt_sclient *pt_server_find_sclient(struct pt_server *server, uint64_t id);
 #endif

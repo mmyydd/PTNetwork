@@ -127,14 +127,14 @@ static void pt_server_close_conn(struct pt_sclient *user, qboolean remove)
 static void pt_server_on_close_listener(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-    server->state = PT_STATE_INITIALIZED;
+    server->state = PT_STATE_SHUTDOWN;
 	if(server->on_close) server->on_close(server, false);
 }
 
 static void pt_server_on_close_free(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-	server->state = PT_STATE_INITIALIZED;
+	server->state = PT_STATE_SHUTDOWN;
 	if(server->on_close) server->on_close(server, true);
 	pt_server_free(server);
 }
@@ -532,4 +532,14 @@ qboolean pt_server_disconnect_conn(struct pt_sclient *user)
         return true;
     }
     return false;
+}
+
+
+struct pt_sclient *pt_server_find_sclient(struct pt_server *server, uint64_t id)
+{
+	struct pt_sclient *user = NULL;
+
+	user = pt_table_find(server->clients, id);
+
+	return user;
 }
