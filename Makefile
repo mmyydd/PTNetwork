@@ -2,8 +2,8 @@ OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 INSTALL_DIR = /usr/local
 
-OBJECTS = buffer.o buffer_reader.o packet.o table.o crc32.o mymemory.o server.o client.o error.o
-SOURCES = buffer.c buffer_reader.c packet.c table.c crc32.c mymemory.c server.c client.c error.c
+SOURCES = buffer.c buffer_reader.c packet.c table.c crc32.c mymemory.c server.c client.c error.c gc_malloc.c
+OBJECTS = buffer.o buffer_reader.o packet.o table.o crc32.o mymemory.o server.o client.o error.o gc_malloc.o
 
 CFLAGS = -c -I$(OPENSSL)/include -I$(LIBUV)/include -I. -O2 -DNDEBUG
 CC = gcc

@@ -407,6 +407,7 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
     server->listener.stream.data = server;
     
     remove(path);
+
      server->last_error= uv_pipe_bind(&server->listener.pipe, path);
     if(server->last_error != 0){
 		if(server->error_notify) server->error_notify(server, "pt_server_start::uv_pipe_bind");
