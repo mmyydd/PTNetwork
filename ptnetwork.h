@@ -15,6 +15,7 @@ extern "C"{
 #include <ptnetwork/table.h>
 #include <ptnetwork/server.h>
 #include <ptnetwork/client.h>
+#include <ptnetwork/gc_malloc.h>
 
 #ifdef __cplusplus
 };
