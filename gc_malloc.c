@@ -18,25 +18,36 @@ struct st_gcmalloc_frame
 struct st_gcmalloc_frame *gc_frame;
 
 
-void gcmalloc_push_frame()
+void gcmalloc_push_frame(struct st_gcmalloc_frame **your_frame)
 {
 	struct st_gcmalloc_frame *frame = MEM_MALLOC(sizeof(struct st_gcmalloc_frame));
-	frame->prev = gc_frame;
+
+	if(your_frame == NULL)
+	{
+		your_frame = &gc_frame;
+	}
+
+	frame->prev = *your_frame;
 	frame->records = NULL;
-	gc_frame = frame;
+	*your_frame = frame;
 }
 
-void gcmalloc_pop_frame()
+void gcmalloc_pop_frame(struct st_gcmalloc_frame **your_frame)
 {
 	struct st_gcmalloc_frame *frame;
 	struct st_gcmalloc_record *prev, *curr;
-	if(gc_frame)
+
+	if(your_frame == NULL){
+		your_frame = &gc_frame;
+	}
+
+	if(*your_frame)
 	{
-		frame = gc_frame;
-		gc_frame = frame->prev;
+		frame = *your_frame;
+		*your_frame = frame->prev;
 
 		prev = NULL;
-		curr = gc_frame->records;
+		curr = frame->records;
 
 		while(curr)
 		{
@@ -51,16 +62,21 @@ void gcmalloc_pop_frame()
 	}
 }
 
-void* gcmalloc_alloc(size_t n)
+void* gcmalloc_alloc(struct st_gcmalloc_frame **your_frame, size_t n)
 {
 	struct st_gcmalloc_record *record;
-	assert(gc_frame != NULL);
-	
+
+	if(your_frame == NULL){
+		your_frame = &gc_frame;
+	}
+
+	assert((*your_frame) != NULL);
+
 	record = MEM_MALLOC(sizeof(struct st_gcmalloc_record));
 	record->size = n;
 	record->ptr = MEM_MALLOC(n);
-	record->next = gc_frame->records;
-	gc_frame->records = record;
+	record->next = (*your_frame)->records;
+	(*your_frame)->records = record;
 
 	return record->ptr;
 }
