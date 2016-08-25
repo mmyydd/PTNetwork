@@ -346,7 +346,7 @@ void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int
     server->on_disconnect = on_disconnect;
     server->keep_alive_delay = keep_alive_delay;
     
-    server->state = PT_STATE_CREATED;
+    server->state = PT_STATE_INITIALIZED;
 }
 
 qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port)
