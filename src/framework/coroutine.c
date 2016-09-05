@@ -20,7 +20,6 @@ static qboolean pt_routine_on_new_connection()
 	return true;
 }
 
-
 static void pt_routine_on_received(struct pt_sclient *user, struct pt_buffer *buff)
 {
 	struct pt_coroutine *routine;
@@ -124,4 +123,11 @@ qboolean pt_coroutine_start(struct pt_coroutine *routine, qboolean is_pipe, cons
 	{
 		return pt_server_start(routine->server, host, port);
 	}
+}
+
+
+
+void pt_corotine_stop(struct pt_coroutine *routine)
+{
+	pt_server_close(routine->server);
 }

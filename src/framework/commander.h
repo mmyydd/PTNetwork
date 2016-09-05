@@ -13,7 +13,7 @@
  */
 
 #ifndef COMMANDER_MAX_OPTIONS
-#define COMMANDER_MAX_OPTIONS 32
+#define COMMANDER_MAX_OPTIONS 64
 #endif
 
 /*
@@ -21,7 +21,7 @@
  */
 
 #ifndef COMMANDER_MAX_ARGS
-#define COMMANDER_MAX_ARGS 32
+#define COMMANDER_MAX_ARGS 64
 #endif
 
 /*

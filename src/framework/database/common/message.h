@@ -1,0 +1,15 @@
+#ifndef _MESSAGE_INCLUDED_H_
+#define _MESSAGE_INCLUDED_H_
+
+enum db_query_message_enum
+{
+	ID_LOGIC_REGISTERED = ID_USER_PACKET_ENUM + 1,
+	ID_QUERY,
+	ID_QUERY_OK,
+	ID_EXECUTE,
+	ID_EXECUTE_OK,
+
+	ID_UNPACKED_FAILED
+};
+
+#endif

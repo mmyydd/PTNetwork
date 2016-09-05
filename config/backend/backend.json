@@ -1,9 +1,0 @@
-[
-	{
-		"server_name" : "测试服务器",
-		"server_id" : 1,
-		"server_type" : true,
-		"server_host" : "/var/tmp/testserver.sock",
-		"server_port" : 0
-	}
-]

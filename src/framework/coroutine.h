@@ -21,6 +21,8 @@ struct pt_coroutine
 	pt_coroutine_connection_event on_connected;
 	pt_coroutine_connection_event on_disconnected;
 	pt_coroutine_receive on_received;
+
+	void *data;
 };
 
 
@@ -35,6 +37,7 @@ void pt_coroutine_free(struct pt_coroutine *routine);
 
 void pt_coroutine_init(struct pt_coroutine *routine, pt_coroutine_connection_event on_connected, pt_coroutine_connection_event on_disconnected, pt_coroutine_receive on_received);
 
-
 qboolean pt_coroutine_start(struct pt_coroutine *routine, qboolean is_pipe, const char *host, uint16_t port);
+
+void pt_coroutine_stop(struct pt_coroutine *routine);
 #endif

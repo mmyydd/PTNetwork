@@ -13,10 +13,10 @@ qboolean readfile(const char *filename, unsigned char **pbuf, uint32_t *len)
 	length = (uint32_t)ftell(fp);
 	fseek(fp,0,SEEK_SET);
 	
-	buf = malloc(length);
+	buf = MEM_MALLOC(length);
 	if(fread(buf, 1, length, fp) != length)
 	{
-		free(buf);
+		MEM_FREE(buf);
 		fclose(fp);
 		return false;
 	}
