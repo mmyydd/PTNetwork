@@ -58,7 +58,7 @@ enum protocol_enum_id
 	ID_USER_DISCONNECTED,
 
     //其他预留封包
-    ID_USER_PACKET_ENUM = 5000,
+    ID_USER_PACKET_ENUM,
 };
 
 /*

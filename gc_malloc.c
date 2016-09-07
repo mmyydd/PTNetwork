@@ -80,3 +80,16 @@ void* gcmalloc_alloc(struct st_gcmalloc_frame **your_frame, size_t n)
 
 	return record->ptr;
 }
+
+
+
+char* gcmalloc_strdup(struct st_gcmalloc_frame **your_frame, char *s)
+{
+	int len = strlen(s) + 0x1;
+	char *n = gcmalloc_alloc(your_frame, len);
+
+	strcpy(n,s);
+
+	return n;
+
+}

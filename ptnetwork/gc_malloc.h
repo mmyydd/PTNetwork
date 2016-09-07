@@ -10,5 +10,11 @@ void gcmalloc_pop_frame(struct st_gcmalloc_frame **your_frame);
 
 //在当前帧中申请一块大小为n的内存
 void* gcmalloc_alloc(struct st_gcmalloc_frame **your_frame, size_t n);
+char* gcmalloc_strdup(struct st_gcmalloc_frame **your_frame, char *s);
+
+
+#define gcmalloc(_SIZE_) gcmalloc_alloc(NULL,_SIZE_)
+#define gcmalloc_push() gcmalloc_push_frame(NULL)
+#define gcmalloc_pop() gcmalloc_pop_frame(NULL)
 
 #endif

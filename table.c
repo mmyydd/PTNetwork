@@ -3,10 +3,29 @@
 #include <ptnetwork/error.h>
 
 
-struct pt_table *pt_table_new()
+struct pt_table *pt_table_new_ex(int granularity)
 {
     struct pt_table *ptable;
     
+    
+    ptable =(struct pt_table*)MEM_MALLOC(sizeof(struct pt_table));
+    
+    bzero(ptable,sizeof(struct pt_table));
+    
+    ptable->granularity = granularity;
+    ptable->size = 0;
+    ptable->head = (struct pt_table_node**)MEM_MALLOC(sizeof(struct pt_table_node*) * ptable->granularity);
+    
+    bzero(ptable->head, sizeof(struct pt_table_node**) * ptable->granularity);
+    
+    return ptable;
+}
+
+
+struct pt_table *pt_table_new()
+{
+	return pt_table_new_ex(TABLE_DEFAULT_GRANULARITY);
+   /* struct pt_table *ptable;
     
     ptable =(struct pt_table*)MEM_MALLOC(sizeof(struct pt_table));
     
@@ -19,6 +38,7 @@ struct pt_table *pt_table_new()
     bzero(ptable->head, sizeof(struct pt_table_node**) * ptable->granularity);
     
     return ptable;
+	*/
 }
 
 
@@ -80,21 +100,25 @@ void pt_table_insert(struct pt_table *ptable, uint64_t id, void* ptr)
 {
     uint32_t index = id % ptable->granularity;
     struct pt_table_node *current;
+    struct pt_table_node *node;
+    node = pt_table_node_new();
+	node->id = id;
+	node->ptr = ptr;
     if(ptable->head[index] == NULL)
     {
-        ptable->head[index] = pt_table_node_new();
-        ptable->head[index]->id = id;
-        ptable->head[index]->ptr = ptr;
+		ptable->head[index] = node;
         ptable->size++;
     }
     else
     {
-        current = ptable->head[index];
-        while(current->next != NULL) current = current->next;
+		node->next = ptable->head[index];
+		ptable->head[index] = node;
+        //current = ptable->head[index];
+        //while(current->next != NULL) current = current->next;
         
-        current->next = pt_table_node_new();
-        current->next->id = id;
-        current->next->ptr = ptr;
+        //current->next = pt_table_node_new();
+        //current->next->id = id;
+        //current->next->ptr = ptr;
         ptable->size++;
     }
 }

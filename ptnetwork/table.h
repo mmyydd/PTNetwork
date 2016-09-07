@@ -2,7 +2,7 @@
 #define _PT_TABLE_INCLUED_H_
 
 
-#define TABLE_NORMAL_COUNT 65535
+#define TABLE_DEFAULT_GRANULARITY 0x10000
 
 struct pt_table_node
 {
@@ -34,6 +34,8 @@ typedef void (*pt_table_enum_cb)(struct pt_table* ptable, uint64_t id,void *ptr,
     创建一个快速搜索表
  */
 struct pt_table *pt_table_new();
+//空间换时间 内存中分布的粒度
+struct pt_table *pt_table_new_ex(int granularity);
 /*
     删除一个快速搜索表
  */
