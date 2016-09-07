@@ -1,0 +1,8 @@
+message network_config
+{
+	required int32 port = 1;
+	required int32 number_of_conn = 2;
+	required int32 keep_time = 3;
+	required bool is_enable_cache = 4;
+	required int32 cache_count = 5;
+};

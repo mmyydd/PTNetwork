@@ -1,7 +1,6 @@
 #ifndef _DB_EXT_INCLUDED_H_
 #define _DB_EXT_INCLUDED_H_
-#include "../db_intr/db_intr.hpp"
-
+#include <db_intr/db_intr.hpp>
 class db_ext : public db_intr
 {
 public:

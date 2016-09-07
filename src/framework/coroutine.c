@@ -1,4 +1,4 @@
-#include "common.h"
+#include <common/common.h>
 #include "coroutine.h"
 
 struct pt_coroutine_user* pt_coroutine_user_new()
@@ -28,15 +28,14 @@ static void pt_routine_on_received(struct pt_sclient *user, struct pt_buffer *bu
 	struct net_header hdr;
 	uint64_t user_id;
 	
-
 	routine = user->server->data;
 
 	buffer_reader_init(&reader, buff);
 	buffer_reader_read(&reader, &hdr, sizeof(hdr));
-	buffer_reader_read(&reader, &user_id, sizeof(user_id));
 
 	if(hdr.id == ID_USER_CONNECTED)
 	{
+		buffer_reader_read(&reader, &user_id, sizeof(user_id));
 		coroutine_user = pt_coroutine_user_new();
 
 		coroutine_user->user = user;
@@ -46,6 +45,7 @@ static void pt_routine_on_received(struct pt_sclient *user, struct pt_buffer *bu
 	}
 	else if(hdr.id == ID_USER_DISCONNECTED)
 	{
+		buffer_reader_read(&reader, &user_id, sizeof(user_id));
 		coroutine_user = pt_table_find(routine->users, user_id);
 		
 		if(coroutine_user != NULL)
@@ -55,9 +55,15 @@ static void pt_routine_on_received(struct pt_sclient *user, struct pt_buffer *bu
 			pt_coroutine_user_free(coroutine_user);
 		}
 	}
-	else
+	else if(hdr.id == ID_TRANSMIT_JSON)
 	{
+		buffer_reader_read(&reader, &user_id, sizeof(user_id));
 		if(routine->on_received) routine->on_received(routine, coroutine_user, hdr, &reader);
+	}
+	else {
+		if(routine->on_received_naked){
+			routine->on_received_naked(routine, hdr, &reader);
+		}
 	}
 }
 
@@ -87,6 +93,7 @@ struct pt_coroutine* pt_coroutine_new()
 	
 	bzero(routine, sizeof(struct pt_coroutine));
 	
+
 	routine->loop = uv_default_loop();
 	routine->users = pt_table_new();
 	routine->server = pt_server_new();

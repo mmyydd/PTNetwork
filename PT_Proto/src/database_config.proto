@@ -1,0 +1,21 @@
+message database_node
+{
+	//标记名称
+	required string name = 1;
+	//地址
+	required string address = 2;
+	//端口
+	required int32 port = 3;
+	//用户名
+	required string username = 4;
+	//密码
+	required string password = 5;
+	//数据库名称
+	required string dbname = 6;
+};
+
+
+message database_config
+{
+	repeated database_node databases = 1;
+};

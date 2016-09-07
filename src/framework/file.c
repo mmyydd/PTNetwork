@@ -1,4 +1,4 @@
-#include "common.h"
+#include <common/common.h>
 #include "file.h"
 
 qboolean readfile(const char *filename, unsigned char **pbuf, uint32_t *len)

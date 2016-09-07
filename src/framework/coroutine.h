@@ -8,7 +8,7 @@ struct pt_coroutine_user;
 typedef void (*pt_coroutine_receive)(struct pt_coroutine *routine, 
 		struct pt_coroutine_user *user, struct net_header hdr, 
 		struct buffer_reader *reader);
-
+typedef void (*pt_coroutine_receive_naked)(struct pt_coroutine *routine, struct net_header hdr, struct buffer_reader *reader);
 typedef void (*pt_coroutine_connection_event)(
 		struct pt_coroutine *routine, struct pt_coroutine_user *user);
 
@@ -21,7 +21,8 @@ struct pt_coroutine
 	pt_coroutine_connection_event on_connected;
 	pt_coroutine_connection_event on_disconnected;
 	pt_coroutine_receive on_received;
-
+	pt_coroutine_receive_naked on_received_naked;
+	
 	void *data;
 };
 

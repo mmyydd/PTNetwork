@@ -1,5 +1,5 @@
 #include "db_intr.hpp"
-#include "../database/common/message.h"
+#include <common/message.h>
 
 db_intr_handle_exception::db_intr_handle_exception(bool is_mysql_err,
 		int error_code, std::string strerr) :
@@ -211,188 +211,6 @@ void db_intr::begin_exec(std::string conn, std::string sql, db_intr_params &para
 	begin_query(query);
 }
 //=====================================================================
-db_intr_key_value::db_intr_key_value(std::string key, std::string value) :
-	m_type(MYSQL_TYPE_VAR_STRING),
-	m_key(key),
-	m_str_value(value)
-{
-}
-
-db_intr_key_value::db_intr_key_value(std::string key, int value):
-	m_type(MYSQL_TYPE_LONG),
-	m_key(key),
-	m_int_value(value)
-{
-
-}
-
-
-db_intr_key_value::db_intr_key_value(std::string key, int64_t value):
-	m_type(MYSQL_TYPE_LONGLONG),
-	m_key(key),
-	m_int64_value(value)
-{
-
-}
-
-db_intr_key_value::db_intr_key_value(std::string key, float value):
-	m_type(MYSQL_TYPE_FLOAT),
-	m_key(key),
-	m_float_value(value)
-{
-
-}
-
-db_intr_key_value::db_intr_key_value(std::string key, double value):
-	m_type(MYSQL_TYPE_DOUBLE),
-	m_key(key),
-	m_double_value(value)
-{
-
-}
-
-int db_intr_key_value::get_type()
-{
-	return m_type;
-}
-
-int db_intr_key_value::get_int()
-{
-	return m_int_value;
-}
-
-int64_t db_intr_key_value::get_int64()
-{
-	return m_int64_value;
-}
-
-std::string db_intr_key_value::get_string()
-{
-	return m_str_value;
-}
-
-float db_intr_key_value::get_float()
-{
-	return m_float_value;
-}
-
-double db_intr_key_value::get_double()
-{
-	return m_double_value;
-}
-
-
-
-bool db_intr_key_value::store_query_param(db_query_param &param)
-{
-	std::string value;
-
-	switch(get_type())
-	{
-		case MYSQL_TYPE_LONG:
-			value.resize(sizeof(m_int_value));
-			for(int i =0;i < sizeof(m_int_value); i++)
-				value[i] = ((unsigned char *)&m_int_value)[i];
-			break;
-		case MYSQL_TYPE_FLOAT:
-			value.resize(sizeof(m_float_value));
-			for(int i =0;i < sizeof(m_float_value); i++)
-				value[i] = ((unsigned char *)&m_float_value)[i];
-			break;
-		case MYSQL_TYPE_DOUBLE:
-			value.resize(sizeof(m_double_value));
-			for(int i =0;i < sizeof(m_double_value); i++)
-				value[i] = ((unsigned char *)&m_double_value)[i];
-			break;
-		case MYSQL_TYPE_LONGLONG:
-			value.resize(sizeof(m_int64_value));
-			for(int i =0;i < sizeof(m_int64_value); i++)
-				value[i] = ((unsigned char *)&m_int64_value)[i];
-			break;
-		case MYSQL_TYPE_VAR_STRING:
-			value = m_str_value;
-			break;
-
-		default:
-			return false;
-			break;
-	}
-	
-	param.set_param_type(get_type());
-	param.set_values(value);
-	return true;
-}
-
-//=======================================================================
-db_intr_column::db_intr_column(const std::string &value): m_value(value)
-{
-	
-}
-
-float db_intr_column::get_float()
-{
-	float s;
-	sscanf(m_value.c_str(), "%f",&s);
-	return s;
-}
-
-double db_intr_column::get_double()
-{
-	double s;
-	sscanf(m_value.c_str(), "%lf", &s);
-	return s;
-}
-
-long db_intr_column::get_long()
-{
-	long l;
-
-	sscanf(m_value.c_str(), "%ld",&l);
-
-	return l;
-}
-
-unsigned long db_intr_column::get_ulong()
-{
-	unsigned long ul;
-	sscanf(m_value.c_str(),"%lu",&ul);
-	return ul;
-}
-
-int32_t db_intr_column::get_int()
-{
-	int s;
-	sscanf(m_value.c_str(), "%d", &s);
-	return s;
-}
-
-uint32_t db_intr_column::get_uint()
-{
-	uint32_t s;
-	sscanf(m_value.c_str(), "%u", &s);
-	return s;
-}
-
-int64_t db_intr_column::get_int64()
-{
-	int64_t s;
-	sscanf(m_value.c_str(), "%lld", &s);
-	return s;
-}
-
-uint64_t db_intr_column::get_uint64()
-{
-	uint64_t s;
-
-	sscanf(m_value.c_str(),"%llu",&s);
-	return s;
-}
-
-std::string db_intr_column::get_string()
-{
-	return m_value;
-}
-
 
 //=========================================================================
 db_intr_fields::db_intr_fields()
@@ -473,6 +291,7 @@ bool db_intr_record_set::move_next()
 	if(m_query.m_rows.empty()) return false;
 
 	m_index++;
+
 	if(m_index < m_query.m_rows.size())
 	{
 		return true;
@@ -481,70 +300,67 @@ bool db_intr_record_set::move_next()
 	return false;
 }
 
-bool db_intr_record_set::get_field_value(const char *name, int &value)
+
+bool db_intr_record_set::is_null(const char *name)
 {
 	int index = m_query.m_fields.index_field(name);
-	if(index == -1) return false;
-	value = m_query.m_rows[m_index][index].get_int();
-	return true;
+	if(index == -1) return true;
+	
+	return m_query.m_rows[m_index][index].is_null();
 }
 
-bool db_intr_record_set::get_field_value(int index, int &value)
+bool db_intr_record_set::is_null(int index)
 {
 	db_intr_row &cur_row = m_query.m_rows[m_index];
 
 	if(index >= 0 && index < cur_row.size())
 	{
-		value = m_query.m_rows[m_index][index].get_int();
+		return m_query.m_rows[m_index][index].is_null();
+	}
+
+	return true;
+}
+bool db_intr_record_set::get_field_value(const char *name, int32_t &value)
+{
+	int index = m_query.m_fields.index_field(name);
+	if(index == -1) return false;
+	value = m_query.m_rows[m_index][index].get_int32();
+	return true;
+}
+
+bool db_intr_record_set::get_field_value(int index, int32_t &value)
+{
+	db_intr_row &cur_row = m_query.m_rows[m_index];
+
+	if(index >= 0 && index < cur_row.size())
+	{
+		value = m_query.m_rows[m_index][index].get_int32();
 		return true;
 	}
 
 	return false;
 }
 
-bool db_intr_record_set::get_field_value(const char *name, long &value)
+bool db_intr_record_set::get_field_value(const char *name, uint32_t &value)
 {
 	int index = m_query.m_fields.index_field(name);
 	if(index == -1) return false;
-	value = m_query.m_rows[m_index][index].get_long();
+	value = m_query.m_rows[m_index][index].get_uint32();
 	return true;
 }
 
-bool db_intr_record_set::get_field_value(int index, long &value)
+bool db_intr_record_set::get_field_value(int index, uint32_t &value)
 {
 	db_intr_row &cur_row = m_query.m_rows[m_index];
 
 	if(index >= 0 && index < cur_row.size())
 	{
-		value = m_query.m_rows[m_index][index].get_long();
+		value = m_query.m_rows[m_index][index].get_uint32();
 		return true;
 	}
 
 	return false;
 }
-
-
-bool db_intr_record_set::get_field_value(const char *name, unsigned long &value)
-{
-	int index = m_query.m_fields.index_field(name);
-	if(index == -1) return false;
-	value = m_query.m_rows[m_index][index].get_ulong();
-	return true;
-}
-
-bool db_intr_record_set::get_field_value(int index, unsigned long &value)
-{
-	db_intr_row &cur_row = m_query.m_rows[m_index];
-
-	if(index >= 0 && index < cur_row.size())
-	{
-		value = m_query.m_rows[m_index][index].get_ulong();
-		return true;
-	}
-
-	return false;
-}
-
 
 bool db_intr_record_set::get_field_value(const char *name, int64_t &value)
 {
@@ -659,10 +475,16 @@ bool db_intr_record_set::is_eof()
 	return m_index == (m_query.m_rows.size() - 1);
 }
 
-uint32_t db_intr_record_set::get_field_count()
+uint32_t db_intr_record_set::get_record_count()
+{
+	return m_query.m_rows.size();
+}
+
+uint32_t db_intr_record_set::get_fields_count()
 {
 	return m_query.m_fields.get_fields_count();
 }
+
 
 db_intr_handle::db_intr_handle(std::string &conn, std::string &sql,
 			db_intr_params &params, fn_db_intr_handle_cb cb,
@@ -744,12 +566,16 @@ void db_intr_handle::process_completed(struct buffer_reader *reader)
 		for(int i = 0; i < rows.rows_size(); i++)
 		{
 			const db_row row = rows.rows(i);
+
 			m_rows.push_back(db_intr_row());
 			db_intr_row &ref_rows = m_rows[m_rows.size() - 1];
 
 			for(int j = 0; j < row.column_size(); j++)
 			{
-				ref_rows.push_back(db_intr_column(row.column(j)));
+				const db_row_value &row_value = row.column(j);
+				db_intr_field &field = m_fields.get_field(j);
+
+				ref_rows.push_back(db_intr_column(field,row_value));
 			}
 		}
 	}
@@ -759,6 +585,7 @@ void db_intr_handle::process_completed(struct buffer_reader *reader)
 	{
 		notify->on_query_completed(this);
 	}
+
 	//notify
 	if(m_callback)
 	{
@@ -803,8 +630,7 @@ struct pt_buffer *db_intr_handle::build_query_buffer()
 	for(size_t i = 0; i < m_params.size(); i++)
 	{
 		db_query_param *param = query.add_params();
-		param->set_param_type(m_params[i].get_type());
-		param->set_values(m_params[i].get_string());
+		m_params[i].store_query_param(*param);
 	}
 	
 	bufferSize = query.ByteSize();
@@ -822,7 +648,6 @@ struct pt_buffer *db_intr_handle::build_query_buffer()
 	
 	nhdr = (struct net_header*)buff->buff;
 	nhdr->length = buff->length;
-
 
 	return buff;
 }

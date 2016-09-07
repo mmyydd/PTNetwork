@@ -1,5 +1,5 @@
-#include <common.h>
-#include <agent.h>
+#include <common/common.h>
+#include "agent.h"
 #include <file.h>
 #include <network_config.pb-c.h>
 #include <agent_servers.pb-c.h>
@@ -38,7 +38,7 @@ qboolean load_cluster_servers()
 	struct pt_cluster *cluster = NULL;
 	unsigned char* servers_buffer;
     size_t i;
-	if(readfile("servers.dat", &servers_buffer, &bufsize) == false)
+	if(readfile("agent.dat", &servers_buffer, &bufsize) == false)
 	{
 		printf("can not open servers.dat\n");
 		return false;
@@ -57,7 +57,7 @@ qboolean load_cluster_servers()
 		AgentServerNode *be = agentServers->servers[i];
 
 		pt_agent_add_server(g_agent,be->server_name, be->server_id,
-				be->address,be->port, be->is_pipe);
+				be->address,be->port, be->is_pipe, be->need_login);
 	}
 
 	agent_servers__free_unpacked(agentServers, NULL);

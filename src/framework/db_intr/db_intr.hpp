@@ -10,7 +10,7 @@
 #include <exception>
 #include <ptnetwork.h>
 #include <db_query.pb.h>
-#include <mysql.h>
+#include <mysql/mysql.h>
 
 class db_intr_handle;
 class db_intr;
@@ -42,68 +42,6 @@ private:
 	int m_error_code;
 };
 
-//参数绑定 param
-class db_intr_key_value
-{
-public:
-	db_intr_key_value(std::string key, std::string value);
-	db_intr_key_value(std::string key, int value);
-	db_intr_key_value(std::string key, int64_t value);
-	db_intr_key_value(std::string key, float value);
-	db_intr_key_value(std::string key, double value);
-
-	int get_int();
-	int64_t get_int64();	
-	float get_float();
-	double get_double();
-	std::string get_string();
-
-	std::string get_key()
-	{
-		return m_key;
-	}
-	//参数类型
-	int get_type();
-
-	//填充数据到protobuf -> db_query_param
-	bool store_query_param(db_query_param &param);
-private:
-	int m_type;
-
-	//type_xxx_value
-	std::string m_key;
-	std::string m_str_value;
-	int m_int_value;
-	int64_t m_int64_value;
-	float m_float_value;
-	double m_double_value;
-};
-
-
-//描述每个row的数据
-class db_intr_column
-{
-public:
-	db_intr_column(const std::string &value);
-
-	int32_t get_int();
-	uint32_t get_uint();
-
-	long get_long();
-	unsigned long get_ulong();
-
-	int64_t get_int64();
-	uint64_t get_uint64();
-
-	float get_float();
-	double get_double();
-
-	std::string get_string();
-private:
-	std::string m_value;
-};
-
-
 //描述每个fields的信息
 struct db_intr_field
 {
@@ -124,13 +62,538 @@ public:
 	uint32_t get_fields_count();
 
 	int index_field(const char *name);
+
+	db_intr_field &get_field(int index){
+		return *m_fields[index];
+	}
 private:
 	std::vector<db_intr_field*> m_fields;
 	std::map<std::string, db_intr_field*> m_search;
 };
 
+enum db_intr_value_type
+{
+	DB_INTR_VALUE_TYPE_NULL,
+	DB_INTR_VALUE_TYPE_INT,
+	DB_INTR_VALUE_TYPE_UINT,
+	DB_INTR_VALUE_TYPE_INT64,
+	DB_INTR_VALUE_TYPE_UINT64,
+	DB_INTR_VALUE_TYPE_STRING,
+	DB_INTR_VALUE_TYPE_FLOAT,
+	DB_INTR_VALUE_TYPE_DOUBLE,
+};
+
+class db_intr_value
+{
+private:
+	db_intr_value_type value_type;
+
+	std::string m_value_string;
+	int32_t m_value_int;
+	uint32_t m_value_uint;
+	int64_t m_value_int64;
+	uint64_t m_value_uint64;
+	float m_value_float;
+	double m_value_double;
+
+public:
+	virtual ~db_intr_value()
+	{
+	}
+	db_intr_value()
+	{
+		value_type = DB_INTR_VALUE_TYPE_NULL;
+	}
+	db_intr_value(std::string value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_STRING;
+		m_value_string = value;
+	}
+
+	db_intr_value(int32_t value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_INT;
+		m_value_int = value;
+	}
+
+	db_intr_value(uint32_t value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_UINT;
+		m_value_uint = value;
+	}
+
+	db_intr_value(int64_t value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_INT64;
+		m_value_int64 = value;
+	}
+
+	db_intr_value(uint64_t value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_UINT64;
+		m_value_uint64 = value;
+	}
+
+	db_intr_value(float value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_FLOAT;
+		m_value_float = value;
+	}
+
+	db_intr_value (double value)
+	{
+		value_type = DB_INTR_VALUE_TYPE_DOUBLE;
+		m_value_double = value;
+	}
+
+	static db_intr_value initWithRow(db_intr_field &field, const db_row_value &row_value)
+	{
+		db_intr_value value;
+
+		if(row_value.is_null())
+		{
+			return value;
+		}
+
+		const char *s = row_value.value().c_str();
+
+		switch(field.type)
+		{
+			case MYSQL_TYPE_LONG:
+				if(row_value.is_unsigned())
+				{
+					sscanf(s, "%u", &value.m_value_uint);
+					value.value_type = DB_INTR_VALUE_TYPE_UINT;
+				} else {
+					sscanf(s, "%d", &value.m_value_int);
+					value.value_type = DB_INTR_VALUE_TYPE_INT;
+				}
+				break;
+			case MYSQL_TYPE_LONGLONG:
+				if(row_value.is_unsigned())
+				{
+					sscanf(s, "%lu", &value.m_value_uint64);
+					value.value_type = DB_INTR_VALUE_TYPE_UINT64;
+				} else {
+					sscanf(s, "%ld", &value.m_value_uint64);
+					value.value_type = DB_INTR_VALUE_TYPE_INT64;
+				}
+				break;
+			case MYSQL_TYPE_FLOAT:
+				sscanf(s, "%f", &value.m_value_float);
+				value.value_type = DB_INTR_VALUE_TYPE_FLOAT;
+				break;
+			case MYSQL_TYPE_DOUBLE:
+				sscanf(s, "%lf", &value.m_value_double);
+				value.value_type = DB_INTR_VALUE_TYPE_DOUBLE;
+				break;
+			case MYSQL_TYPE_VAR_STRING:
+			case MYSQL_TYPE_STRING:
+			default:
+				value.m_value_string = row_value.value();
+				value.value_type = DB_INTR_VALUE_TYPE_STRING;
+				break;
+		}
+
+		return value;
+	}
+
+	int32_t get_int32()
+	{
+		int32_t value = 0;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value = (int32_t) m_value_int;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value = (int32_t) m_value_uint;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value = (int32_t) m_value_int64;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value = (int32_t) m_value_uint64;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				sscanf(m_value_string.c_str(), "%d", &value);
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value = (int32_t) m_value_float;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value = (int32_t) m_value_double;
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+	uint32_t get_uint32()
+	{
+		uint32_t value = 0;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value = (uint32_t) m_value_int;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value = (uint32_t) m_value_uint;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value = (uint32_t) m_value_int64;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value = (uint32_t) m_value_uint64;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				sscanf(m_value_string.c_str(), "%u", &value);
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value = (uint32_t) m_value_float;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value = (uint32_t) m_value_double;
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+
+	int64_t get_int64()
+	{
+		int64_t value = 0;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value = (int64_t) m_value_int;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value = (int64_t) m_value_uint;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value = (int64_t) m_value_int64;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value = (int64_t) m_value_uint64;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				sscanf(m_value_string.c_str(), "%ld", &value);
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value = (int64_t) m_value_float;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value = (int64_t) m_value_double;
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+
+	uint64_t get_uint64()
+	{
+		uint64_t value = 0;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value = (uint64_t) m_value_int;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value = (uint64_t) m_value_uint;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value = (uint64_t) m_value_int64;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value = (uint64_t) m_value_uint64;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				sscanf(m_value_string.c_str(), "%lu", &value);
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value = (uint64_t) m_value_float;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value = (uint64_t) m_value_double;
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+	float get_float()
+	{
+		float value = 0.0f;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value = (float) m_value_int;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value = (float) m_value_uint;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value = (float) m_value_int64;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value = (float) m_value_uint64;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				sscanf(m_value_string.c_str(), "%f", &value);
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value = (float) m_value_float;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value = (float) m_value_double;
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+	double get_double()
+	{
+		double value = 0.0;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value = (double) m_value_int;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value = (double) m_value_uint;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value = (double) m_value_int64;
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value = (double) m_value_uint64;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				sscanf(m_value_string.c_str(), "%lf", &value);
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value = (double) m_value_float;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value = (double) m_value_double;
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+	std::string get_string()
+	{
+		char value[64];
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				sprintf(value, "%d", m_value_int);
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				sprintf(value, "%u", m_value_uint);
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				sprintf(value, "%ld", m_value_int64);
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				sprintf(value, "%lu", m_value_uint64);
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				return m_value_string;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				sprintf(value, "%f", m_value_float);
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				sprintf(value, "%lf", m_value_double);
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+
+	bool store_query_param(db_query_param &param)
+	{
+		int param_type;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+			case DB_INTR_VALUE_TYPE_UINT:
+				param_type = MYSQL_TYPE_LONG;
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+			case DB_INTR_VALUE_TYPE_UINT64:
+				param_type = MYSQL_TYPE_LONGLONG;
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				param_type = MYSQL_TYPE_VAR_STRING;
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				param_type = MYSQL_TYPE_FLOAT;
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				param_type = MYSQL_TYPE_DOUBLE;
+				break;
+			default:
+				param_type = MYSQL_TYPE_NULL;
+				break;
+		}
+
+		param.set_param_type(param_type);
+		param.set_values(build_value());
+		
+		return true;
+	}
+	
+	std::string build_value()
+	{
+		std::string value;
+
+		switch(value_type)
+		{
+			case DB_INTR_VALUE_TYPE_INT:
+				value.resize(sizeof(int32_t));
+				for(int i =0; i < sizeof(int32_t); i ++)
+				{
+					value[i] = (((char*)&m_value_int)[i]);
+				}
+				break;
+			case DB_INTR_VALUE_TYPE_UINT:
+				value.resize(sizeof(uint32_t));
+				for(int i =0; i < sizeof(uint32_t); i ++)
+				{
+					value[i] = (((char*)&m_value_uint)[i]);
+				}
+				break;
+			case DB_INTR_VALUE_TYPE_INT64:
+				value.resize(sizeof(int64_t));
+				for(int i =0; i < sizeof(int64_t); i ++)
+				{
+					value[i] = (((char*)&m_value_int64)[i]);
+				}
+				break;
+			case DB_INTR_VALUE_TYPE_UINT64:
+				value.resize(sizeof(uint64_t));
+				for(int i =0; i < sizeof(uint64_t); i ++)
+				{
+					value[i] = (((char*)&m_value_uint64)[i]);
+				}
+				break;
+			case DB_INTR_VALUE_TYPE_STRING:
+				value = m_value_string;
+				break;
+			case DB_INTR_VALUE_TYPE_FLOAT:
+				value.resize(sizeof(float));
+				for(int i =0; i < sizeof(float); i ++)
+				{
+					value[i] = (((char*)&m_value_float)[i]);
+				}
+				break;
+			case DB_INTR_VALUE_TYPE_DOUBLE:
+				value.resize(sizeof(double));
+				for(int i =0; i < sizeof(double); i ++)
+				{
+					value[i] = (((char*)&m_value_double)[i]);
+				}
+				break;
+			default:
+				break;
+		}
+
+		return value;
+	}
+};
+
+//描述每个row的数据
+class db_intr_column
+{
+protected:
+	db_intr_value m_value;
+public:
+	db_intr_column(db_intr_field &field, const db_row_value &row_value)
+	{
+		m_is_null = row_value.is_null();
+		m_is_unsigned = row_value.is_unsigned();
+		m_value = db_intr_value::initWithRow(field, row_value);
+	}
+
+	int32_t get_int32()
+	{
+		return m_value.get_int32();
+	}
+
+	uint32_t get_uint32()
+	{
+		return m_value.get_uint32();
+	}
+
+	int64_t get_int64()
+	{
+		return m_value.get_int64();
+	}
+
+	uint64_t get_uint64()
+	{
+		return m_value.get_uint64();
+	}
+	
+	float get_float()
+	{
+		return m_value.get_float();
+	}
+
+	double get_double()
+	{
+		return m_value.get_double();
+	}
+	
+	std::string get_string()
+	{
+		return m_value.get_string();
+	}
+
+	bool is_null(){
+		return m_is_null;
+	}
+
+	bool is_unsigned(){
+		return m_is_unsigned;
+	}
+
+private:
+	bool m_is_null;
+	bool m_is_unsigned;
+};
+
+
 typedef std::vector<db_intr_column> db_intr_row;
-typedef std::vector<db_intr_key_value> db_intr_params;
+typedef std::vector<db_intr_value> db_intr_params;
 
 //record set 用于读取query result
 class db_intr_record_set
@@ -143,16 +606,17 @@ public:
 	bool move_first();
 	bool is_eof();
 	bool move_next();
-	uint32_t get_field_count();
+	uint32_t get_record_count();
+	uint32_t get_fields_count();
 
-	bool get_field_value(const char *name, int &value);
-	bool get_field_value(int index, int &value);
 
-	bool get_field_value(const char *name, long &value);
-	bool get_field_value(int index, long &value);
-	
-	bool get_field_value(const char *name, unsigned long &value);
-	bool get_field_value(int index, unsigned long &value);
+	bool is_null(const char *name);
+	bool is_null(int index);
+	bool get_field_value(const char *name, int32_t &value);
+	bool get_field_value(int index, int32_t &value);
+
+	bool get_field_value(const char *name, uint32_t &value);
+	bool get_field_value(int index, uint32_t &value);
 
 	bool get_field_value(const char *name, int64_t &value);
 	bool get_field_value(int index, int64_t &value);

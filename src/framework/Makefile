@@ -2,10 +2,11 @@ OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 INSTALL_DIR = /usr/local
 
-OBJECTS = agent.o event.o file.o ini.o queue.o coroutine.o commander.o qtime.o 
-SOURCES = agent.c event.c file.c ini.c queue.c coroutine.c commander.c qtime.c 
+OBJECTS = event.o file.o ini.o queue.o coroutine.o commander.o qtime.o
+SOURCES = event.c file.c ini.c queue.c coroutine.c commander.c qtime.c
 
-CFLAGS = -c -I$(OPENSSL)/include -I$(LIBUV)/include -I. -O2 -DNDEBUG
+#CFLAGS = -c --std=c99 I$(OPENSSL)/include -I$(LIBUV)/include -I. -O2 -DNDEBUG
+CFLAGS = -c -I. -O2 -I$(PT_Service) -DNDEBUG
 CC = gcc
 
 ifeq ($(shell uname),Darwin)
@@ -29,7 +30,8 @@ $(OBJECTS) : $(SOURCES)
 
 share : $(OBJECTS)
 	mkdir -p out
-	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -L$(OPENSSL)/lib -L$(LIBUV)/lib -luv -lcrypto -lptnetwork
+	#$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -L$(OPENSSL)/lib -L$(LIBUV)/lib -luv -lcrypto -lptnetwork
+	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -luv -lcrypto -lptnetwork
 
 clean:
 	rm -rf *.o

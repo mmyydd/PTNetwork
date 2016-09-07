@@ -136,6 +136,7 @@ normalize_args(int *argc, const char **argv) {
   int alloc = *argc + 1;
   char **nargv = malloc(alloc * sizeof(char *));
   int i;
+  size_t j;
 
   for (i = 0; argv[i]; ++i) {
     const char *arg = argv[i];
@@ -145,7 +146,7 @@ normalize_args(int *argc, const char **argv) {
     if (len > 2 && '-' == arg[0] && !strchr(arg + 1, '-')) {
       alloc += len - 2;
       nargv = realloc(nargv, alloc * sizeof(char *));
-      for (size_t j = 1; j < len; ++j) {
+      for (j = 1; j < len; ++j) {
         nargv[size] = malloc(3);
         sprintf(nargv[size], "-%c", arg[j]);
         size++;

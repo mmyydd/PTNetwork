@@ -52,16 +52,19 @@ void on_query_cb(db_intr_handle *pQuery)
 
 		int row = 0;
 
+
+		std::cout << "record count:" << record.get_record_count() << std::endl;
 		if(record.move_first())
 		{
 			do
 			{
-				int count = record.get_field_count();
+				int count = record.get_fields_count();
 
 				for(int i =0; i < count; i++)
 				{
 					std::string res;
 					record.get_field_value(i,res);
+					std::cout << "res:" << res << std::endl;
 				}
 
 				row++;
