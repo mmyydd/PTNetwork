@@ -57,8 +57,11 @@ enum protocol_enum_id
 	ID_USER_CONNECTED,
 	ID_USER_DISCONNECTED,
 
+	//内部控制包
+	ID_CONTROL_PACKET = 100,
+
     //其他预留封包
-    ID_USER_PACKET_ENUM,
+    ID_USER_PACKET_ENUM = 500,
 };
 
 /*
