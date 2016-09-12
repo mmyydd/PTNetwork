@@ -185,7 +185,6 @@ void pt_buffer_write(struct pt_buffer *buff, const void *data, uint32_t length)
         buff->length += length;
     } else {
         pt_buffer_reserve(buff, length);
-        
         memcpy(&buff->buff[buff->length],data,length);
         buff->length += length;
     }
@@ -199,14 +198,13 @@ qboolean pt_buffer_read(struct pt_buffer *buff,void *data, uint32_t length, qboo
         return false;
     }
     
-    memcpy(data, buff->buff, length);
-    
+	memcpy(data, buff->buff, length);
     
     if(remove == true)
     {
         copy_length = buff->length - length;
         
-        memcpy(buff->buff, &buff->buff[length],copy_length);
+        memmove(buff->buff, &buff->buff[length],copy_length);
         
         buff->length = copy_length;
     }

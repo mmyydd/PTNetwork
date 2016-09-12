@@ -111,7 +111,7 @@ static void pt_server_on_close_conn(uv_handle_t* peer) {
 
 
 //关闭一个客户端的连接
-static void pt_server_close_conn(struct pt_sclient *user)
+static void pt_server_close_conn(struct pt_sclient *user, enum pt_disconnect_type_enum disconn_type)
 {
     struct pt_server *server = user->server;
     
@@ -121,6 +121,8 @@ static void pt_server_close_conn(struct pt_sclient *user)
     }
     
     user->connected = false;
+	user->disconnect_type = disconn_type;
+
     uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
 }
 
@@ -157,11 +159,14 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
 
 	server->number_of_pop_recv++;	
 	//用户发送eof包或异常 则直接断开用户
-    if(nread <= 0)
+    if(nread == UV_EOF)
     {
-        pt_server_close_conn(user);
+        pt_server_close_conn(user, DISCONNECT_TYPE_EOF);
         return;
     }
+	if(nread == 0){
+		fprintf(stderr, "nread == 0\n");
+	}
     
 	server->number_of_recv_bytes += nread;	
 
@@ -183,9 +188,10 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
             if(pt_decrypt_package(user->serial, &user->encrypt_ctx, userbuf) == false)
             {
 				if(server->warning_user != NULL) server->warning_user(user);
+
                 //数据不正确，断开用户的连接，释放缓冲区
                 pt_buffer_free(userbuf);
-                pt_server_close_conn(user);
+                pt_server_close_conn(user, DISCONNECT_TYPE_DECRYPT);
                 return;
             }
             
@@ -206,7 +212,13 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
     //如果用户发的数据是致命错误，则干掉用户
     if(packet_err == PACKET_INFO_FAKE || packet_err == PACKET_INFO_OVERFLOW){
 		if(server->warning_user != NULL) server->warning_user(user);
-        pt_server_close_conn(user);
+		
+		if(packet_err == PACKET_INFO_FAKE){
+			pt_server_close_conn(user, DISCONNECT_TYPE_FAKE);
+		}
+		if(packet_err == PACKET_INFO_OVERFLOW){
+			pt_server_close_conn(user, DISCONNECT_TYPE_OVERFLOW);
+		}
     }
 }
 
@@ -255,13 +267,13 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     
     //限制当前服务器的最大连接数
     if(server->number_of_connected + 1 > server->number_of_max_connected){
-        pt_server_close_conn(user);
+        pt_server_close_conn(user, DISCONNECT_TYPE_MAX_CONN);
         return;
     }
     
     //进行数据过滤，如果用户Connect请求被on_connect干掉则直接断开用户
     if(server->on_connect && server->on_connect(user) == false){
-        pt_server_close_conn(user);
+        pt_server_close_conn(user, DISCONNECT_TYPE_USER);
         return;
     }
     
@@ -292,7 +304,7 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     {
 		if(server->error_notify) server->error_notify(server, "connection_cb::uv_read_start");
         //修复一个bug，之前直接使用uv_close，正确应该使用这个函数
-        pt_server_close_conn(user);
+        pt_server_close_conn(user, DISCONNECT_TYPE_READ_FAIL);
         return;
     }
 
@@ -461,7 +473,7 @@ qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
     
     //防止服务器发包过多导致服务器的内存耗尽
     if(user->sock.stream.write_queue_size >= user->server->number_of_max_send_queue){
-        pt_server_close_conn(user);
+        pt_server_close_conn(user, DISCONNECT_TYPE_SEND_FLOW);
         goto ProcedureEnd;
     }
     
@@ -511,7 +523,7 @@ void pt_server_send_to_all(struct pt_server *server, struct pt_buffer *buff)
 
 static void pt_server_close_all_cb(struct pt_table *ptable, uint64_t id, void *ptr, void* user_arg)
 {
-    pt_server_close_conn(ptr);
+    pt_server_close_conn(ptr,DISCONNECT_TYPE_CLOSE);
 }
 
 void pt_server_close(struct pt_server *server)
@@ -531,7 +543,7 @@ void pt_server_close_free(struct pt_server *server)
 qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 {
     if(user->connected){
-        pt_server_close_conn(user);
+        pt_server_close_conn(user, DISCONNECT_TYPE_USER);
         return true;
     }
     return false;

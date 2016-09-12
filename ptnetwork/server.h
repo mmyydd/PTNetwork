@@ -12,6 +12,18 @@ struct pt_sclient;
 //默认的最大发送队列/用户
 #define NUMBER_MAX_SEND_QUEUE 100
 
+enum pt_disconnect_type_enum
+{
+	DISCONNECT_TYPE_EOF,
+	DISCONNECT_TYPE_FAKE,
+	DISCONNECT_TYPE_USER,
+	DISCONNECT_TYPE_OVERFLOW,
+	DISCONNECT_TYPE_CLOSE,
+	DISCONNECT_TYPE_SEND_FLOW,
+	DISCONNECT_TYPE_READ_FAIL,
+	DISCONNECT_TYPE_MAX_CONN,
+	DISCONNECT_TYPE_DECRYPT
+};
 struct pt_sclient
 {
     //用户唯一ID
@@ -25,6 +37,7 @@ struct pt_sclient
     
     //当前套接字是否被连接,如果服务器被关闭则设置为false
     //同时也不会发送数据和接收数据
+	//更新 当disconnect后 可以从disconnect_type获取断开状态
     qboolean connected;
     
     //接收到数据后，未拆包的数据
@@ -38,6 +51,9 @@ struct pt_sclient
     
     //用户定义的数据
     void *data;
+
+	//断开状态
+	enum pt_disconnect_type_enum disconnect_type;
 
 	//引用计数器
 	uint32_t ref_count;

@@ -189,7 +189,6 @@ qboolean pt_client_send(struct pt_client *client, struct pt_buffer *buff)
     req->buff = buff;
     req->data = client;
     req->buf = uv_buf_init((char*)buff->buff, buff->length);
-    
     client->last_error = uv_write(&req->req, (uv_stream_t*)&client->conn, &req->buf, 1, pt_client_write_cb);
     
     if(client->last_error){

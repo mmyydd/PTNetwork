@@ -41,16 +41,18 @@ struct pt_buffer* pt_split_packet(struct pt_buffer *netbuf)
 {
     struct pt_buffer *buf;
     struct net_header *hdr;
-    
+    uint32_t length;
+
     hdr = (struct net_header*)netbuf->buff;
-    buf = pt_buffer_new(hdr->length);
-    
-    if(pt_buffer_read(netbuf, buf->buff, hdr->length, true) == false){
+	length = hdr->length;
+    buf = pt_buffer_new(length);
+		
+    if(pt_buffer_read(netbuf, buf->buff, length, true) == false){
         pt_buffer_free(buf);
         return NULL;
     }
     
-    buf->length = hdr->length;
+    buf->length = length;
     return buf;
 }
 
