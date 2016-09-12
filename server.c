@@ -90,35 +90,37 @@ static void pt_server_write_cb(uv_write_t* req, int status)
  */
 static void pt_server_on_close_conn(uv_handle_t* peer) {
     struct pt_sclient *user = peer->data;
-    pt_sclient_free(user);
-}
-
-
-//关闭一个客户端的连接
-static void pt_server_close_conn(struct pt_sclient *user, qboolean remove)
-{
     struct pt_server *server = user->server;
-    
-    //检查用户是否已被关闭
-    if(user->connected  == false)
-    {
-        return;
-    }
-    
-    user->connected = false;
-    
-    if(remove)
-    {
-        //通知用户函数，用户断开
-        if(server->on_disconnect) server->on_disconnect(user);
-        
+	
+	if(pt_table_find(server->clients, user->id))
+	{
+		//通知用户函数，用户断开
+		if(server->on_disconnect){ 
+			server->on_disconnect(user);
+		}
+
         //从用户ID表中删除
         pt_table_erase(server->clients, user->id);
         
         //降低服务器连接数
         server->number_of_connected--;
+	}
+
+    pt_sclient_free(user);
+}
+
+
+//关闭一个客户端的连接
+static void pt_server_close_conn(struct pt_sclient *user)
+{
+    struct pt_server *server = user->server;
+    
+    //检查用户是否已被关闭
+    if(user->connected  == false) {
+        return;
     }
     
+    user->connected = false;
     uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
 }
 
@@ -157,7 +159,7 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
 	//用户发送eof包或异常 则直接断开用户
     if(nread <= 0)
     {
-        pt_server_close_conn(user, true);
+        pt_server_close_conn(user);
         return;
     }
     
@@ -183,7 +185,7 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
 				if(server->warning_user != NULL) server->warning_user(user);
                 //数据不正确，断开用户的连接，释放缓冲区
                 pt_buffer_free(userbuf);
-                pt_server_close_conn(user, true);
+                pt_server_close_conn(user);
                 return;
             }
             
@@ -204,7 +206,7 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
     //如果用户发的数据是致命错误，则干掉用户
     if(packet_err == PACKET_INFO_FAKE || packet_err == PACKET_INFO_OVERFLOW){
 		if(server->warning_user != NULL) server->warning_user(user);
-        pt_server_close_conn(user, true);
+        pt_server_close_conn(user);
     }
 }
 
@@ -253,13 +255,13 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     
     //限制当前服务器的最大连接数
     if(server->number_of_connected + 1 > server->number_of_max_connected){
-        pt_server_close_conn(user, false);
+        pt_server_close_conn(user);
         return;
     }
     
     //进行数据过滤，如果用户Connect请求被on_connect干掉则直接断开用户
     if(server->on_connect && server->on_connect(user) == false){
-        pt_server_close_conn(user, false);
+        pt_server_close_conn(user);
         return;
     }
     
@@ -290,7 +292,7 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
     {
 		if(server->error_notify) server->error_notify(server, "connection_cb::uv_read_start");
         //修复一个bug，之前直接使用uv_close，正确应该使用这个函数
-        pt_server_close_conn(user, true);
+        pt_server_close_conn(user);
         return;
     }
 
@@ -459,7 +461,7 @@ qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
     
     //防止服务器发包过多导致服务器的内存耗尽
     if(user->sock.stream.write_queue_size >= user->server->number_of_max_send_queue){
-        pt_server_close_conn(user, true);
+        pt_server_close_conn(user);
         goto ProcedureEnd;
     }
     
@@ -509,7 +511,7 @@ void pt_server_send_to_all(struct pt_server *server, struct pt_buffer *buff)
 
 static void pt_server_close_all_cb(struct pt_table *ptable, uint64_t id, void *ptr, void* user_arg)
 {
-    pt_server_close_conn(ptr, true);
+    pt_server_close_conn(ptr);
 }
 
 void pt_server_close(struct pt_server *server)
@@ -529,7 +531,7 @@ void pt_server_close_free(struct pt_server *server)
 qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 {
     if(user->connected){
-        pt_server_close_conn(user, true);
+        pt_server_close_conn(user);
         return true;
     }
     return false;

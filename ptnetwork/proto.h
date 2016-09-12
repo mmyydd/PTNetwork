@@ -56,6 +56,7 @@ enum protocol_enum_id
 	//通知服务器用户连接断开的封包
 	ID_USER_CONNECTED,
 	ID_USER_DISCONNECTED,
+	ID_SENDALL,
 
 	//内部控制包
 	ID_CONTROL_PACKET = 100,
