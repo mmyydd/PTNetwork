@@ -110,7 +110,7 @@ int main(int argc, const char * argv[]) {
 	printf("listen:%d\n", networkConfig->port);	
 	if(pt_agent_startup(g_agent,"0.0.0.0",networkConfig->port) == false)
 	{
-		printf("agent startup\n");
+		printf("can't not start agent server \n");
 		return 1;
 	}
 

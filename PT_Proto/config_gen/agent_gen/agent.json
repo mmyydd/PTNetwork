@@ -1,34 +1,10 @@
 [
 	{
 		"server_name" : "auth",
-		"is_pipe" : true,
-		"address" : "/var/tmp/auth_serv.sock",
-		"port" : 0,
+		"is_pipe" : false,
+		"address" : "127.0.0.1",
+		"port" : 10000,
 		"server_id" : 1,
 		"need_login" : false
-	},
-	{
-		"server_name" : "match",
-		"is_pipe" : true,
-		"address" : "/var/tmp/match_serv.sock",
-		"port" : 0,
-		"server_id" : 2,
-		"need_login" : true
-	},
-	{
-		"server_name" : "friend",
-		"is_pipe" : true,
-		"address" : "/var/tmp/friend_serv.sock",
-		"port" : 0,
-		"server_id" : 3,
-		"need_login" : true
-	},
-	{
-		"server_name" : "chat",
-		"is_pipe" : true,
-		"address" : "/var/tmp/chat_serv.sock",
-		"port" : 0,
-		"server_id" : 4,
-		"need_login" : true
 	}
 ]

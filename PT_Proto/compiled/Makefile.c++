@@ -7,13 +7,13 @@ else
 	SO_EXT := so
 endif
 
-LIBNAME = libptproto
+LIBNAME = libptproto++
 
 OUTPUT = $(LIBNAME).$(SO_EXT)
 OUTPUT_STATIC = $(LIBNAME).a
 
-OBJECTS = *.pb-c.o
-SOURCES = *.c
+OBJECTS = *.pb.o
+SOURCES = *.cc
 
 $(LIBNAME) : $(OBJECTS)
 	mkdir -p ../lib
@@ -33,11 +33,11 @@ clean:
 
 
 install:
-	install *.pb-c.h /usr/local/include
+	install *.pb.h /usr/local/include
 	install ../lib/$(OUTPUT) /usr/local/lib
 	install ../lib/$(OUTPUT_STATIC) /usr/local/lib
 
 uninstall:
-	rm -rf /usr/local/include/*.pb-c.h
+	rm -rf /usr/local/include/*.pb.h
 	rm -rf /usr/local/lib/$(OUTPUT)
 	rm -rf /usr/local/lib/$(OUTPUT_STATIC)

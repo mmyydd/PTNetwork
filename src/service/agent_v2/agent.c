@@ -13,9 +13,7 @@ struct pt_buffer *pt_agent_build_user_connected_package(
 		struct pt_agent *agent,struct pt_sclient *user)
 {
 	struct net_header hdr = pt_create_nethdr(ID_USER_CONNECTED);
-	struct pt_buffer *buff = pt_create_package(hdr, &user->id,
-					 sizeof(user->id));
-	
+	struct pt_buffer *buff = pt_create_package(hdr, &user->id,sizeof(user->id));
 	return buff;
 }
 
@@ -23,9 +21,7 @@ struct pt_buffer *pt_agent_build_user_disconnected_package(
 		struct pt_agent *agent,struct pt_sclient *user)
 {
 	struct net_header hdr = pt_create_nethdr(ID_USER_DISCONNECTED);
-	struct pt_buffer *buff = pt_create_package(hdr, &user->id,
-					 sizeof(user->id));
-	
+	struct pt_buffer *buff = pt_create_package(hdr, &user->id,sizeof(user->id));
 	return buff;
 }
 
@@ -84,7 +80,6 @@ static void pt_agent_user_received(struct pt_sclient *user, struct pt_buffer *bu
 	send_hdr = (struct net_header *)send_buff->buff;
 	send_hdr->length = send_buff->length;
 	send_hdr->id %= SERVER_ID_SPLIT;
-
 	while(node)
 	{
 		if(node->server_id == server_id)
@@ -162,10 +157,8 @@ static void pt_agent_node_on_received(struct pt_client *conn, struct pt_buffer *
 	length = buffer_reader_over_size(&reader);
 
 	user = pt_table_find(agent->server->clients, user_id);
-
 	//接收数据的用户不存在
-	if(user == NULL)
-	{
+	if(user == NULL){
 		return;
 	}
 
@@ -192,7 +185,7 @@ static void pt_agent_node_on_received(struct pt_client *conn, struct pt_buffer *
 	//
 	
 	buff_data = &buff->buff[sizeof(struct net_header)];
-	memcpy(buff_data,data,length);
+	memmove(buff_data,data,length);
 	buff->length = sizeof(struct net_header) + length;
 
 	//修改net_header
@@ -421,13 +414,17 @@ void pt_agent_free(struct pt_agent *agent)
 void pt_agent_send_to_all(struct pt_agent *agent, struct pt_buffer *buff)
 {
 	struct pt_agent_node *node;
-	if(!agent->is_connected) return;
+	if(!agent->is_connected){
+		pt_buffer_free(buff);
+		return;
+	}
 
 	node = agent->nodes;
 
 	while(node)
 	{
 		pt_buffer_ref_increment(buff);
+
 		pt_client_send(node->conn, buff);
 		node = node->next;
 	}

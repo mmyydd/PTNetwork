@@ -1,21 +1,23 @@
 OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 INSTALL_DIR = /usr/local
-FRAMEWORK =../../framework/out/libframework.a
-PT_PROTO = ../../../PT_Proto/compiled/
 
-OBJECTS = main.o db_ext.o db_intr.o db_query.pb.o service.o base64.o
-SOURCES = main.cpp db_ext.cpp ../../framework/db_intr/db_intr.cpp ../../../PT_Proto/compiled/db_query.pb.cc service.cpp base64.cpp
+OBJECTS = main.o db_ext.o base64.o
+SOURCES = main.cpp db_ext.cpp base64.cpp
 	
 
-CFLAGS = -c -g -DDEBUG -std=c++11 -I$(PT_Service) -I$(OPENSSL)/include -I$(LIBUV)/include -I. -I"../../framework/" -I$(PT_PROTO)
+CFLAGS = -c -g -DDEBUG -std=c++11 -I$(PT_Service) -I$(OPENSSL)/include \
+		 -I$(LIBUV)/include -I$(PT_Service)/framework -I$(PT_Proto)/compiled -I$(PT_Service)/service/base
+
+LIB_DIR = -L$(OPENSSL)/lib -L/usr/lib64/mysql -L$(LIBUV)/lib -L/usr/local/opt/jsoncpp/lib -L$(PT_Proto)/compiled/out -L$(PT_Service)/service/base/
+LIBS = -luv -lcrypto -lptnetwork -lprotobuf -lmysqlclient -ljsoncpp $(PT_Proto)/compiled/out/libpt_proto.a ../base/libptbase.a
+
 
 CC = g++
-
 OUTPUT = auth
 
 $(OUTPUT) : $(OBJECTS)
-	$(CC) -o $(OUTPUT) -g -L$(OPENSSL)/lib -L/usr/lib64/mysql -L$(LIBUV)/lib -L$(PT_PROTO)/out -luv -lcrypto -lptnetwork $(OBJECTS) $(FRAMEWORK) $(PT_PROTO)/out/libpt_proto.a -lprotobuf -lmysqlclient -ljsoncpp
+	$(CC) -o $(OUTPUT) -g $(LIB_DIR) $(LIBS) $(OBJECTS)
 
 $(OBJECTS) : $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES)
