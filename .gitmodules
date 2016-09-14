@@ -1,3 +1,6 @@
 [submodule "PTNetwork"]
 	path = PTNetwork
 	url = git@github.com:number201724/PTNetwork.git
+[submodule "PT_Proto"]
+	path = PT_Proto
+	url = git@github.com:number201724/PT_Proto.git
