@@ -1,6 +1,5 @@
-#include <ptnetwork.h>
-#include <common/common.h>
-#include <common/message.h>
+#include <ptframework/common/common.h>
+#include <ptframework/common/message.h>
 #include "agent.h"
 
 void pt_agent_send_to_all(struct pt_agent *agent, struct pt_buffer *buff);

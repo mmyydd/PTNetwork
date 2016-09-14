@@ -1,8 +1,6 @@
 OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 INSTALL_DIR = /usr/local
-FRAMEWORK =../framework/out/libframework.a
-PT_PROTO = ../../PT_Proto/compiled/
 MYSQL_HEADER = /usr/include/mysql/
 MYSQL_LIB=/usr/lib64/mysql/
 
@@ -28,15 +26,15 @@ SOURCES = main.c \
 
 	
 
-CFLAGS = -c -std=gnu99 -g -I$(PT_Service) -I$(OPENSSL)/include -I$(LIBUV)/include -I$(MYSQL_HEADER) -I. -I"../framework/" -I$(PT_PROTO) -DPRIVATE_CHANNEL=$(PRIVATE_CHANNEL) -DPUBLIC_CHANNEL=$(PUBLIC_CHANNEL) -DPID_FILE=$(PID_FILE) -DDB_CONFIG=$(DB_CONFIG) -DNETWORK_CONFIG=$(NETWORK_CONFIG) -DLOG_DIR=$(LOG_DIR) -DDEBUG
+CFLAGS = -c -std=gnu99 -g -I$(OPENSSL)/include -I$(LIBUV)/include -I$(MYSQL_HEADER) -DPRIVATE_CHANNEL=$(PRIVATE_CHANNEL) -DPUBLIC_CHANNEL=$(PUBLIC_CHANNEL) -DPID_FILE=$(PID_FILE) -DDB_CONFIG=$(DB_CONFIG) -DNETWORK_CONFIG=$(NETWORK_CONFIG) -DLOG_DIR=$(LOG_DIR) -DDEBUG
 
 CC = gcc
 
 OUTPUT = database
 
 $(OUTPUT) : $(OBJECTS)
-	$(CC) -o $(OUTPUT) -g -L$(OPENSSL)/lib -L$(LIBUV)/lib -L$(MYSQL_LIB) -L$(PT_PROTO)/out -luv -lcrypto -lptnetwork $(OBJECTS) $(FRAMEWORK) $(PT_PROTO)/out/libpt_proto.a -lprotobuf-c \
-	-lmysqlclient
+	$(CC) -o $(OUTPUT) -g -L$(OPENSSL)/lib -L$(LIBUV)/lib -L$(MYSQL_LIB) -luv -lcrypto -lptnetwork -lptframework \
+		-lprotobuf-c -lptproto -lmysqlclient $(OBJECTS)
 
 $(OBJECTS) : $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES)

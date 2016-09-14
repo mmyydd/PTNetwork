@@ -1,7 +1,7 @@
 #ifndef _QUERY_INCLUDED_H_
 #define _QUERY_INCLUDED_H_
 
-#include <queue.h>
+#include <ptframework/queue.h>
 #include <db_query.pb-c.h>
 
 #define QUERY_TIMEOUT 5

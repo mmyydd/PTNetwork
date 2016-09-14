@@ -1,7 +1,7 @@
-#include <common/common.h>
+#include <ptframework/common/common.h>
+#include <ptframework/common/message.h>
+#include "../main.h"
 #include "netchan.h"
-#include "common/message.h"
-#include "main.h"
 #include "query.h"
 
 struct pt_server *private_channel;

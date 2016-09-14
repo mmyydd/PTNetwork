@@ -1,7 +1,7 @@
-#include <common/common.h>
+#include <ptframework/common/common.h>
+#include <ptframework/common/message.h>
 #include <mysql.h>
 #include "query.h"
-#include <common/message.h>
 
 struct pt_queue db_queue;
 struct st_worker_proc *workers;

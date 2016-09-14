@@ -1,7 +1,7 @@
-#include <common/common.h>
-#include <commander.h>
-#include "main.h"
-#include "common/message.h"
+#include <ptframework/common/common.h>
+#include <ptframework/commander.h>
+#include <ptframework/common/message.h>
+#include "../main.h"
 #include "netchan.h"
 #include "query.h"
 

@@ -2,10 +2,9 @@ OPENSSL = /usr/local/opt/openssl
 LIBUV = /usr/local/opt/libuv
 INSTALL_DIR = /usr/local
 
-OBJECTS = event.o file.o ini.o queue.o coroutine.o commander.o qtime.o
-SOURCES = event.c file.c ini.c queue.c coroutine.c commander.c qtime.c
+OBJECTS = event.o file.o ini.o queue.o commander.o qtime.o
+SOURCES = event.c file.c ini.c queue.c commander.c qtime.c
 
-#CFLAGS = -c --std=c99 I$(OPENSSL)/include -I$(LIBUV)/include -I. -O2 -DNDEBUG
 CFLAGS = -c -I. -O2 -I$(PT_Service) -DNDEBUG
 CC = gcc
 
@@ -16,22 +15,16 @@ else
 	CFLAGS := -fPIC $(CFLAGS)
 endif
 
-OUTPUT_SHARE = out/libframework.$(SO_EXT)
-OUTPUT = out/libframework.a
+OUTPUT_SHARE = libptframework.$(SO_EXT)
+OUTPUT = libptframework.a
 
 
 $(OUTPUT) : $(OBJECTS)
-	mkdir -p out
+	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -luv -lcrypto -lptnetwork
 	ar cr $(OUTPUT) $(OBJECTS) 
 
 $(OBJECTS) : $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES)
-
-
-share : $(OBJECTS)
-	mkdir -p out
-	#$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -L$(OPENSSL)/lib -L$(LIBUV)/lib -luv -lcrypto -lptnetwork
-	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -luv -lcrypto -lptnetwork
 
 clean:
 	rm -rf *.o
@@ -40,15 +33,17 @@ clean:
 	rm -rf *.so
 	rm -rf out
 
-#install:
-#	install ptnetwork.h $(INSTALL_DIR)/include/
-#	install -d ptnetwork $(INSTALL_DIR)/include/ptnetwork/
-#	install ptnetwork/* $(INSTALL_DIR)/include/ptnetwork/
-#	install out/* $(INSTALL_DIR)/lib/
+install:
+	install -d /usr/local/include/ptframework
+	install -d /usr/local/include/ptframework/common
+	install -p -D *.h /usr/local/include/ptframework/
+	install -p -D common/* /usr/local/include/ptframework/common/
+	install $(OUTPUT) /usr/local/lib
+	install $(OUTPUT_SHARE) /usr/local/lib
 
 
-#uninstall:
-#	rm -rf $(INSTALL_DIR)/include/ptnetwork.h
-#	rm -rf $(INSTALL_DIR)/include/ptnetwork
-#	rm -rf $(INSTALL_DIR)/lib/$(OUTPUT)
-#	rm -rf $(INSTALL_DIR)/lib/$(OUTPUT_SHARE)
+uninstall:
+	rm -rf /usr/local/lib/$(OUTPUT)
+	rm -rf /usr/local/lib/$(OUTPUT_SHARE)
+	rm -rf /usr/local/include/ptframework
+

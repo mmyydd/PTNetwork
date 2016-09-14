@@ -1,6 +1,6 @@
-#include <common/common.h>
+#include <ptframework/common/common.h>
+#include <ptframework/queue.h>
 #include <mysql.h>
-#include "queue.h"
 #include "db_pool.h"
 
 #define DB_ERROR_INVALID_CONN_NAME 10000
