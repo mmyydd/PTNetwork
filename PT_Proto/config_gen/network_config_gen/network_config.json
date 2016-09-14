@@ -1,7 +1,0 @@
-{
-	"port" : 27015,
-	"number_of_conn" : 10000,
-	"keep_time" : 3,
-	"is_enable_cache" : true,
-	"cache_count" : 10000
-}
