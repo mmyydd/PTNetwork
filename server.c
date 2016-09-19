@@ -159,14 +159,11 @@ static void pt_server_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t
 
 	server->number_of_pop_recv++;	
 	//用户发送eof包或异常 则直接断开用户
-    if(nread == UV_EOF)
+    if(nread == UV_EOF || nread <= 0)
     {
         pt_server_close_conn(user, DISCONNECT_TYPE_EOF);
         return;
     }
-	if(nread == 0){
-		fprintf(stderr, "nread == 0\n");
-	}
     
 	server->number_of_recv_bytes += nread;	
 

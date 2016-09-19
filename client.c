@@ -99,6 +99,7 @@ static void pt_client_connect_cb(uv_connect_t* req, int status)
     struct pt_client *client = req->data;
     
     if(status != 0){
+		client->last_error = status;
         client->state = PT_NO_CONNECT;
         MEM_FREE(req);
         if(client->on_connected){
