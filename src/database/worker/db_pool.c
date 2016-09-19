@@ -15,7 +15,7 @@ void db_conn_init(struct db_conn *conn, DatabaseNode *node)
 	conn->config.dbname = strdup(node->dbname);
 	
 
-	fprintf(stderr, "initialize mysql connection:%s    address:%s:%d\n",conn->config.name, conn->config.address,
+	fprintf(stderr, "[LOGIC] initialize mysql connection:%s    address:%s:%d\n",conn->config.name, conn->config.address,
 			conn->config.port);
 
 	mysql_init(&conn->conn);
@@ -24,27 +24,29 @@ void db_conn_init(struct db_conn *conn, DatabaseNode *node)
 qboolean db_conn_connect(struct db_conn *conn)
 {
 	MYSQL *result;
+	uint32_t flag = CLIENT_MULTI_STATEMENTS;
+
 	if(conn->config.address[0] == '/')
 	{
 		result = mysql_real_connect(&conn->conn,
 				NULL,conn->config.username,
 				conn->config.password,conn->config.dbname,
-				0,conn->config.address,0);
+				0,conn->config.address,flag);
 	}
 	else
 	{
 		result = mysql_real_connect(&conn->conn,conn->config.address,
 				conn->config.username,conn->config.password,
-				conn->config.dbname,conn->config.port,NULL,0);
+				conn->config.dbname,conn->config.port,NULL,flag);
 	}
 
 	if(result == NULL)
 	{
-		WriteLog("[LOGIC] DBConnect Failed:%s\n", conn->config.name);
+		fprintf(stderr, "[LOGIC] DBConnect Failed:%s\n", conn->config.name);
 		return false;
 	}
 
-	WriteLog("[LOGIC] DBConnect Success:%s\n", conn->config.name);
+	fprintf(stderr, "[LOGIC] DBConnect Success:%s\n", conn->config.name);
 	return true;
 }
 
@@ -54,7 +56,7 @@ void db_pool_init(DatabaseConfig *dbConfig)
 	dbpool.num_of_conn = (int)dbConfig->n_databases;
 	dbpool.connections = malloc(sizeof(struct db_conn) * dbConfig->n_databases);
 	
-	fprintf(stderr, "db_pool_init: init %d connection\n", dbpool.num_of_conn);
+	fprintf(stderr, "[LOGIC] db_pool_init: init %d connection\n", dbpool.num_of_conn);
 
 	for(i = 0; i < dbConfig->n_databases; i++)
 	{

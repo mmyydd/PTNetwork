@@ -6,297 +6,270 @@
 #define DB_ERROR_INVALID_CONN_NAME 10000
 #define DB_ERROR_INVALID_CONN_NAME_STRING "无效的数据库name"
 
-
 #define DB_ERROR_NUM_PARAM_ERR 10001
 #define DB_ERROR_NUM_PARAM_ERR_STRING "查询语句参数错误"
-
 
 #define DB_ERROR_PARAM_BIND_FAILED 10002
 #define DB_ERROR_PARAM_BIND_FAILED_STRING "参数绑定失败"
 
-#undef malloc
-#undef free
-#undef realloc
-#undef calloc
-
-void db_query_result_set_error(DbQueryResult *result, qboolean is_mysql_err,
+void db_query_result_set_error(DbStmtQueryResult *result, qboolean is_mysql_err,
 		int error_code,const char *errmsg)
 {
 
 	if(is_mysql_err == true)
 	{
-		if(error_code >= 2000 && error_code < 3000){
-			fprintf(stderr, "[LOGIC] mysql error:%s\n", errmsg);
-			exit(1);
+		switch(error_code)
+		{
+			case 2006:		//CR_SERVER_GONE_ERROR
+			case 2013:		//CR_SERVER_LOST
+				fprintf(stderr, "[LOGIC][FATAL ERROR] mysql error:%s\n", errmsg);
+				fflush(stderr);
+				exit(1);
+				break;
+			default:
+				break;
 		}
 	}
+	
 	result->success = false;
 	result->error = gcmalloc(sizeof(DbError));
 	db_error__init(result->error);
-	result->error->is_mysql_error = false;
-	result->error->reason = (char*)errmsg;
+	result->error->is_mysql_error = is_mysql_err;
+	result->error->reason = gcstrdup((char*)errmsg);
 	result->error->error_code = error_code;
 }
 
-
-qboolean db_command_bind_param(struct db_conn *conn, DbQuery *pQuery, DbQueryResult *result, MYSQL_STMT *stmt)
+DbStmtQueryResult *db_command_run(DbStmtQuery *stmt_query, qboolean is_execute)
 {
-	unsigned long param_cnt;
-	MYSQL_BIND *bind_params;
-	int i;
-	my_bool bind_result;
-
-	//检查mysql参数个数
-	param_cnt = mysql_stmt_param_count(stmt);
-	
-	if(param_cnt == 0) return true;	 //判断参数如果是0个则直接返回
-
-	if(param_cnt != pQuery->n_params){
-		db_query_result_set_error(result,
-				false, DB_ERROR_NUM_PARAM_ERR ,
-				DB_ERROR_NUM_PARAM_ERR_STRING);
-
-		return false;
-	}
-
-	bind_params = gcmalloc(sizeof(MYSQL_BIND) * pQuery->n_params);
-
-	//参数绑定 防止sql注入
-	for(i = 0; i < (int)pQuery->n_params;i++)
-	{
-		bzero(&bind_params[i], sizeof(MYSQL_BIND));
-		bind_params[i].buffer = pQuery->params[i]->values.data;
-		bind_params[i].buffer_length = pQuery->params[i]->values.len;
-		bind_params[i].buffer_type = pQuery->params[i]->param_type;
-	}
-
-	bind_result = mysql_stmt_bind_param(stmt, bind_params);
-
-	if(bind_result == false)
-	{
-		db_query_result_set_error(result, false, DB_ERROR_PARAM_BIND_FAILED,
-				DB_ERROR_PARAM_BIND_FAILED_STRING);
-		return false;
-	}
-
-	return true;
-}
-
-void db_command_run_exec(struct db_conn *conn, DbQuery *pQuery, DbQueryResult *result)
-{
+	struct db_conn *my;
 	int r,i;
+	unsigned long num_params;
+	MYSQL_RES *meta_data;
 	MYSQL_STMT *stmt;
-	struct pt_queue result_queue;
+	MYSQL_BIND *bind_params, *bind_result;
+	DbResult *single_result;
+	DbRows *rows;
+	uint32_t num_rows, num_fields, j, k, tmp_count;
+	unsigned long *bind_length;
+	void *tmp;
+	DbStmtQueryResult *stmt_query_result = gcmalloc(sizeof(DbStmtQueryResult));
 
-	pt_queue_init(&result_queue);
-	stmt = mysql_stmt_init(&conn->conn);
+	db_stmt_query_result__init(stmt_query_result);
 
-	//预处理sql
-	r = mysql_stmt_prepare(stmt, pQuery->query, strlen(pQuery->query));
+	//从连接池中获取数据库连接
+	my = db_pool_getconn(stmt_query->conn);
 
-	if(r)
+	stmt_query_result->success = true;
+
+	//如果连接池没有这个数据库的连接
+	if(my == NULL)
 	{
-		db_query_result_set_error(result,
-				true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
-		mysql_stmt_close(stmt);
-		return;
+		db_query_result_set_error(stmt_query_result,false, DB_ERROR_INVALID_CONN_NAME,DB_ERROR_INVALID_CONN_NAME_STRING);
+		return stmt_query_result;
 	}
 
-	if(db_command_bind_param(conn, pQuery, result, stmt) == false)
-	{
-		mysql_stmt_close(stmt);
-		return;
-	}
+	stmt = mysql_stmt_init(&my->conn);
 
-	r = mysql_stmt_execute(stmt);
-
-	if(r)
-	{
-		db_query_result_set_error(result,
-				true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
-		mysql_stmt_close(stmt);
-		return;
-	}
-
-	result->success = true;
-	result->affected_rows = mysql_stmt_affected_rows(stmt);
-
-	mysql_stmt_close(stmt);
-}
-
-void db_command_run_query(struct db_conn *conn, DbQuery *pQuery, DbQueryResult *result)
-{
-	int r;
-	uint32_t n_rows, n_fields, i, j;
-	
-	DbField *field;
-	MYSQL_RES *res;
-	MYSQL_STMT *stmt;
-	struct pt_queue result_queue;
-	
-	//results
-	MYSQL_BIND *bindResult;
-	unsigned long *resultLength;
-	pt_queue_init(&result_queue);
-
-	stmt = mysql_stmt_init(&conn->conn);
-
-	//预处理sql
-	r = mysql_stmt_prepare(stmt, pQuery->query, strlen(pQuery->query));
-
-	if(r)
-	{
-		db_query_result_set_error(result,
-				true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
-		mysql_stmt_close(stmt);
-		return;
-	}
-
-	if(db_command_bind_param(conn, pQuery, result, stmt) == false)
-	{
-		mysql_stmt_close(stmt);
-		return;
-	}
-
-	r = mysql_stmt_execute(stmt);
-
-	if(r)
-	{
-		db_query_result_set_error(result,
-				true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
-		mysql_stmt_close(stmt);
-		return;
-	}
-	
-	res = mysql_stmt_result_metadata(stmt);
-	r = mysql_stmt_store_result(stmt);
-
-	if(r)
-	{
-		db_query_result_set_error(result,
-				true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
-		mysql_stmt_close(stmt);
-		return;
-	}
-
-	n_fields = mysql_stmt_field_count(stmt);
-	n_rows = (uint32_t)mysql_stmt_num_rows(stmt);
-	
-	//==============================================================================================
-	//填充fields
-	//
-	
-	result->fields = gcmalloc(sizeof(DbFields));
-	
-	db_fields__init(result->fields);
-	result->fields->n_fields = n_fields;
-	result->fields->fields = gcmalloc(sizeof(DbField*) * n_fields);
-
-	for( i = 0; i < n_fields; i++)
-	{
-		field = gcmalloc(sizeof(DbField));
-		db_field__init(field);
-
-		field->name = gcmalloc_strdup(NULL, res->fields[i].name);
-		field->type = res->fields[i].type;
-
-		result->fields->fields[i] = field;
-	}
-
-	//==============================================================================================
-	//填充rows
-	//
-	bindResult = gcmalloc(sizeof(MYSQL_BIND) * n_fields);
-	resultLength = gcmalloc(sizeof(unsigned long) * n_fields);
-#define RESET_RESULT() for( j = 0; j < n_fields; j++) \
+#define CHECK_ERROR() if(r) \
 	{ \
-		bzero(&bindResult[j], sizeof(MYSQL_BIND)); \
-		resultLength[j] = 0; \
-		bindResult[j].length = &resultLength[j]; \
+		db_query_result_set_error(stmt_query_result, true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));	\
+		goto ExecuteBreak;  \
 	}
 
-	RESET_RESULT();
+	//预处理SQL语句
+	r =  mysql_stmt_prepare(stmt, stmt_query->query, strlen(stmt_query->query));
+	CHECK_ERROR();
 
-	mysql_stmt_bind_result(stmt, bindResult);
-
-	result->rows = gcmalloc(sizeof(DbRows));
-	db_rows__init(result->rows);
-
-	result->rows->n_rows = n_rows;
-	result->rows->rows = gcmalloc(sizeof(DbRow*) * n_rows);
-
-	j = 0;
-	while(true)
+	//====>绑定参数到sql语句
+	num_params = mysql_stmt_param_count(stmt);
+	if(num_params > 0)
 	{
-		r = mysql_stmt_fetch(stmt);
-		if(r == 1) {	//处理错误
-			db_query_result_set_error(result,
-				true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
-			mysql_stmt_close(stmt);
-			return;
-		}
-
-		if(r == MYSQL_NO_DATA) { //没有其他数据
-			break;
-		}
-
-		result->rows->rows[j] = gcmalloc(sizeof(DbRow));
-		db_row__init(result->rows->rows[j]);
-
-		result->rows->rows[j]->n_column = n_fields;
-		result->rows->rows[j]->column = gcmalloc(sizeof(DbRowValue*) * n_fields);
-
-		//横向填充column
-		for( i = 0; i < n_fields; i++)
+		if(num_params != stmt_query->n_params)
 		{
-			bindResult[i].buffer = gcmalloc(resultLength[i]);
-			bindResult[i].buffer_length = resultLength[i];
-			bindResult[i].is_null = gcmalloc(sizeof(my_bool));
+			db_query_result_set_error(stmt_query_result, false, DB_ERROR_NUM_PARAM_ERR ,DB_ERROR_NUM_PARAM_ERR_STRING);
+			goto ExecuteBreak;
+		}
+		bind_params = gcmalloc(sizeof(MYSQL_BIND) * num_params);
+		bzero(bind_params, sizeof(MYSQL_BIND) * num_params);
 
-			*bindResult[i].is_null = false;
-
-			result->rows->rows[j]->column[i] = gcmalloc(sizeof(DbRowValue));
-			db_row_value__init(result->rows->rows[j]->column[i]);
-
-			mysql_stmt_fetch_column(stmt, &bindResult[i], i, 0);
-
-			result->rows->rows[j]->column[i]->value.len = bindResult[i].buffer_length;
-			result->rows->rows[j]->column[i]->value.data = (uint8_t*)bindResult[i].buffer;
-			result->rows->rows[j]->column[i]->is_null = *bindResult[i].is_null;
-			result->rows->rows[j]->column[i]->is_unsigned = bindResult[i].is_unsigned;
+		for(i = 0; i < (int)stmt_query->n_params;i++)
+		{
+			bind_params[i].buffer = stmt_query->params[i]->data.data;
+			bind_params[i].buffer_length = stmt_query->params[i]->data.len;
+			bind_params[i].buffer_type = stmt_query->params[i]->type;
+			bind_params[i].is_null = gcmalloc(sizeof(my_bool));
+			*bind_params[i].is_null = stmt_query->params[i]->is_null;
+			bind_params[i].is_unsigned = stmt_query->params[i]->is_unsigned;
 		}
 
-		j++;
+		r = mysql_stmt_bind_param(stmt, bind_params);
+		CHECK_ERROR();
 	}
+	//====<完成绑定
 
-	result->success = true;
+	//执行SQL
+	r = mysql_stmt_execute(stmt);
+	CHECK_ERROR();
 
+	//开始处理操作结果集
+	do
+	{
+		r = mysql_stmt_store_result(stmt);
+		CHECK_ERROR();
+
+		meta_data = mysql_stmt_result_metadata(stmt);
+
+		num_fields = mysql_stmt_field_count(stmt);
+		num_rows = mysql_stmt_num_rows(stmt);
+	
+
+		//如果是空的fields 继续执行next_result
+		if(num_fields == 0)
+		{
+			goto RunNext;
+		}
+
+		single_result = gcmalloc(sizeof(DbResult));
+		db_result__init(single_result);
+
+		single_result->affected_rows = mysql_stmt_affected_rows(stmt);
+		
+		/*
+			Store Field
+		*/
+		
+		single_result->n_fields = num_fields;
+		single_result->fields = gcmalloc(num_fields * sizeof(DbStmtValue*));
+
+		for(j = 0; j < num_fields; j++)
+		{
+			single_result->fields[j] = gcmalloc(sizeof(DbStmtValue));
+			db_stmt_value__init(single_result->fields[j]);
+
+			single_result->fields[j]->name = gcstrdup(meta_data->fields[j].name);
+			single_result->fields[j]->type = meta_data->fields[j].type;
+		}
+
+
+		
+		if(num_fields > 0 && num_rows > 0)
+		{
+			//=====>绑定参数返回结果
+
+			bind_result = gcmalloc(sizeof(MYSQL_BIND) * num_fields);
+			bind_length = gcmalloc(sizeof(unsigned long) * num_fields);
+			
+			//关联bind_length和bind_result
+			//bind_length的填充取决于mysql_stmt_fetch
+			for(j = 0; j < num_fields; j++)	
+			{
+				bind_length[j] = 0;
+				bzero(&bind_result[j], sizeof(MYSQL_BIND));
+				bind_result[j].length = &bind_length[j];
+			}
+
+			r = mysql_stmt_bind_result(stmt, bind_result);
+			CHECK_ERROR();
+
+			//=====<绑定参数结束
+
+
+			//创建rows
+			rows = gcmalloc(sizeof(DbRows));
+			db_rows__init(rows);
+
+			rows->n_rows = num_rows;
+			rows->rows = gcmalloc(sizeof(DbRow*) * num_rows);
+
+			j = 0;
+			
+			//填充rows的column
+			while(true)
+			{
+				r = mysql_stmt_fetch(stmt);	//fetch一行
+
+				//处理错误
+				if(r == 1)
+				{
+					db_query_result_set_error(stmt_query_result,true, mysql_stmt_errno(stmt), mysql_stmt_error(stmt));
+					goto ExecuteBreak;
+				}
+				
+				//没有其他数据
+				if(r == MYSQL_NO_DATA)
+				{
+					break;
+				}
+
+				rows->rows[j] = gcmalloc(sizeof(DbRow));
+				db_row__init(rows->rows[j]);
+
+				rows->rows[j]->n_column = num_fields;
+				rows->rows[j]->column = gcmalloc(sizeof(DbStmtValue*) * num_fields);
+				
+				//填充column
+				for( k = 0; k < num_fields; k++)
+				{
+					rows->rows[j]->column[k] = gcmalloc(sizeof(DbStmtValue));
+					db_stmt_value__init(rows->rows[j]->column[k]);
+
+					bind_result[k].buffer = gcmalloc(bind_length[k]);
+					bind_result[k].buffer_length = bind_length[k];
+					bind_result[k].is_null = gcmalloc(sizeof(my_bool));
+					bind_result[k].is_null[0] = false;
+
+					r = mysql_stmt_fetch_column(stmt, &bind_result[k], k, 0);
+					CHECK_ERROR();
+
+					rows->rows[j]->column[k]->has_data = true;
+					rows->rows[j]->column[k]->has_is_null = true;
+					rows->rows[j]->column[k]->has_is_unsigned = true;
+
+					rows->rows[j]->column[k]->data.len = bind_result[k].buffer_length;
+					rows->rows[j]->column[k]->data.data = (unsigned char*)bind_result[k].buffer;
+					rows->rows[j]->column[k]->is_null = *bind_result[k].is_null;
+					rows->rows[j]->column[k]->is_unsigned = bind_result[k].is_unsigned;
+				}
+
+				j++;
+			}
+
+			single_result->rows = rows;
+
+		}
+
+		//添加结果集到results
+		if(stmt_query_result->n_results == 0)
+		{
+			stmt_query_result->n_results = 1;
+			stmt_query_result->results = gcmalloc(sizeof(DbResult *));
+			stmt_query_result->results[0] = single_result;
+		}
+		else
+		{
+			tmp_count = stmt_query_result->n_results;
+			stmt_query_result->n_results++;
+
+			tmp = gcmalloc(sizeof(DbResult *) * stmt_query_result->n_results);
+			memcpy(tmp, stmt_query_result->results, sizeof(DbResult *) * tmp_count);
+			stmt_query_result->results = tmp;
+			stmt_query_result->results[tmp_count] = single_result;
+		}
+
+RunNext:
+		r = mysql_stmt_next_result(stmt);
+		fflush(stderr);
+		if(r != 0)
+		{
+			if( r == -1) break;
+			CHECK_ERROR();
+		}
+	}while(true);
+
+ExecuteBreak:
+
+	mysql_stmt_free_result(stmt);
 	mysql_stmt_close(stmt);
-}
 
-DbQueryResult *db_command_exec(DbQuery *pQuery, qboolean is_exec)
-{
-	struct db_conn *conn;
-	DbQueryResult *result = gcmalloc(sizeof(DbQueryResult));
-	db_query_result__init(result);
-
-	conn = db_pool_getconn(pQuery->conn);
-
-	//数据库建立连接失败
-	if(conn == NULL){
-		db_query_result_set_error(result,
-				false, DB_ERROR_INVALID_CONN_NAME,DB_ERROR_INVALID_CONN_NAME_STRING);
-		return result;
-	}
-
-	if(is_exec)
-	{
-		db_command_run_exec(conn, pQuery, result);
-	}
-	else
-	{
-		db_command_run_query(conn, pQuery, result);
-	}
-
-	return result;
+	return stmt_query_result;
 }

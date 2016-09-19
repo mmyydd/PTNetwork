@@ -55,6 +55,7 @@ static void pt_agent_user_received(struct pt_sclient *user, struct pt_buffer *bu
 	struct pt_agent_node *node = agent->nodes;
 	struct net_header *send_hdr;
 	struct pt_agent_user_info *userinfo = user->data;
+	uint32_t id;
 
 	buffer_reader_init(&reader, buff);
 	buffer_reader_read(&reader, &header, sizeof(header));
@@ -67,6 +68,13 @@ static void pt_agent_user_received(struct pt_sclient *user, struct pt_buffer *bu
 	server_id = header.id / SERVER_ID_SPLIT;
 
 	if(server_id == 0){//无效的服务器id
+		return;
+	}
+
+	id = header.id % SERVER_ID_SPLIT;
+
+	//过滤非法数据包
+	if(send_hdr->id >= ID_CONTROL_PACKET){
 		return;
 	}
 

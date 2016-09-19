@@ -41,7 +41,7 @@ protected:
 	virtual void on_user_received(struct pt_userinfo userinfo, struct buffer_reader* reader,struct net_header hdr);
 	virtual void on_user_receive_json(struct pt_userinfo userinfo, Json::Value &root);
 
-	virtual void on_control_package(uint64_t node_id, struct buffer_reader *reader);
+	virtual void on_control_package(uint64_t node_id, struct buffer_reader *reader, struct net_header hdr);
 
 	void on_gateway_connected(struct pt_sclient *user);
 	void on_gateway_recevied(struct pt_sclient *user, struct pt_buffer *buff);

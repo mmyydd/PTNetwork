@@ -127,7 +127,7 @@ void pt_base_service::receiveJsonMsg(struct pt_userinfo userinfo, struct buffer_
 	}
 }
 
-void pt_base_service::on_control_package(uint64_t node_id, struct buffer_reader *reader)
+void pt_base_service::on_control_package(uint64_t node_id, struct buffer_reader *reader, struct net_header hdr)
 {
 
 }
@@ -176,7 +176,7 @@ void pt_base_service::on_gateway_recevied(struct pt_sclient *user, struct pt_buf
 		userinfo.user_id = user_id;
 		on_user_received(userinfo, &reader, hdr);
 	} else if (hdr.id >= ID_CONTROL_PACKET){
-		on_control_package(user->id, &reader);
+		on_control_package(user->id, &reader, hdr);
 	}
 }
 

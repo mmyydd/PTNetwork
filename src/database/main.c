@@ -33,6 +33,7 @@ void set_error_handler();
 
 NetworkConfig *network_config;
 DatabaseConfig *database_config;
+
 const char *get_logfile()
 {
 	static char log[256];

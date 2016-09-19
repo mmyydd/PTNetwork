@@ -18,7 +18,7 @@ OUTPUT_SHARE = libptbase.$(SO_EXT)
 OUTPUT = libptbase.a 
 
 $(OUTPUT) $(OUTPUT_SHARE) : $(OBJECTS)
-	$(CC) -shared -o$(OUTPUT_SHARE) $(OBJECTS)
+	$(CC) -shared -luv -lcrypto -lprotobuf -lptproto++ -lptframework -o$(OUTPUT_SHARE) $(OBJECTS)
 	ar cr $(OUTPUT) $(OBJECTS)
 	
 $(OBJECTS) : $(SOURCES)

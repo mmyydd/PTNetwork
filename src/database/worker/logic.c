@@ -15,7 +15,7 @@ void logic_on_connect(struct pt_client *conn, enum pt_client_state state)
 {
 	if(state == PT_CONNECT_FAILED)
 	{
-		fprintf(stderr, "[LOGIC] get connect to listener failed. exit....\n");
+		fprintf(stderr, "[LOGIC] get connect to listener failed. %s exit..\n", uv_strerror(conn->last_error));
 		exit(1);
 	}
 
@@ -39,13 +39,17 @@ void protobuf_parse_on_failed(struct pt_client *conn)
 	pt_client_send(conn, buff);
 }
 
-void logic_build_and_send_result(struct pt_client *conn,qboolean is_exec, DbQuery *dbQuery, DbQueryResult *dbResult)
+void build_and_send_result(struct pt_client *conn, qboolean is_exec, DbStmtQueryResult *stmt_query_result)
 {
 	struct pt_buffer *net_buff;
 	struct net_header hdr;
-	size_t buflen = db_query_result__get_packed_size(dbResult);
-	unsigned char *buff = gcmalloc_alloc(NULL, buflen);
-	size_t ok_len = db_query_result__pack(dbResult, buff);
+	size_t buflen;
+	unsigned char *buff;
+	size_t pack_len;
+	
+	buflen = db_stmt_query_result__get_packed_size(stmt_query_result);
+	buff = gcmalloc(buflen);
+	pack_len = db_stmt_query_result__pack(stmt_query_result, buff);
 
 	if(is_exec)
 	{
@@ -57,7 +61,7 @@ void logic_build_and_send_result(struct pt_client *conn,qboolean is_exec, DbQuer
 	}
 
 
-	net_buff = pt_create_package(hdr, buff, ok_len);
+	net_buff = pt_create_package(hdr, buff, pack_len);
 
 	pt_client_send(conn, net_buff);
 }
@@ -68,8 +72,8 @@ void logic_on_received(struct pt_client *conn, struct pt_buffer *buff)
 	struct net_header hdr;
 	unsigned char *data;
 	uint32_t length;
-	DbQuery *dbQuery;
-	DbQueryResult *dbResult;
+	DbStmtQuery *stmt_query;
+	DbStmtQueryResult *stmt_query_result;
 
 	buffer_reader_init(&reader, buff);
 	buffer_reader_read(&reader, &hdr, sizeof(hdr));
@@ -79,22 +83,25 @@ void logic_on_received(struct pt_client *conn, struct pt_buffer *buff)
 
 	if(hdr.id == ID_QUERY || hdr.id == ID_EXECUTE)
 	{
-		dbQuery = db_query__unpack(NULL, length, data);
+		stmt_query = db_stmt_query__unpack(NULL, length, data);
 
-		if(dbQuery == NULL) 
-		{
+		if(stmt_query == NULL) {
 			protobuf_parse_on_failed(conn);
 			return;
 		}
-		
-		gcmalloc_push_frame(NULL);
 
-		dbResult = db_command_exec(dbQuery, hdr.id == ID_EXECUTE);
-		if(dbResult) logic_build_and_send_result(conn, hdr.id == ID_EXECUTE, dbQuery, dbResult);
+		gcmalloc_push();
 
-		gcmalloc_pop_frame(NULL);
+		stmt_query_result = db_command_run(stmt_query, hdr.id == ID_EXECUTE);
 
-		db_query__free_unpacked(dbQuery,NULL);
+		if(stmt_query_result)
+		{
+			build_and_send_result(conn, hdr.id == ID_EXECUTE, stmt_query_result);
+		}
+
+		gcmalloc_pop();
+
+		db_stmt_query__free_unpacked(stmt_query, NULL);
 	}
 	else
 	{
