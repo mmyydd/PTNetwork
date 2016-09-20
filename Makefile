@@ -16,21 +16,23 @@ else
 endif
 
 
-OUTPUT_SHARE = out/libptnetwork.$(SO_EXT)
-OUTPUT = out/libptnetwork.a
+OUTPUT_SHARE = libptnetwork.$(SO_EXT)
+OUTPUT = libptnetwork.a
+
+all: $(OUTPUT) $(OUTPUT_SHARE)
 
 
 $(OUTPUT) : $(OBJECTS)
-	mkdir -p out
 	ar cr $(OUTPUT) $(OBJECTS) 
+
+
+$(OUTPUT_SHARE) : $(OBJECTS)
+	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -L$(OPENSSL)/lib -L$(LIBUV)/lib -luv -lcrypto
+
 
 $(OBJECTS) : $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES)
 
-
-share : $(OBJECTS)
-	mkdir -p out
-	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -L$(OPENSSL)/lib -L$(LIBUV)/lib -luv -lcrypto
 
 clean:
 	rm -rf *.o
@@ -43,7 +45,8 @@ install:
 	install ptnetwork.h $(INSTALL_DIR)/include/
 	install -d ptnetwork $(INSTALL_DIR)/include/ptnetwork/
 	install ptnetwork/* $(INSTALL_DIR)/include/ptnetwork/
-	install out/* $(INSTALL_DIR)/lib/
+	install $(OUTPUT) $(INSTALL_DIR)/lib/
+	install $(OUTPUT_SHARE) $(INSTALL_DIR)/lib/
 
 
 uninstall:
