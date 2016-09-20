@@ -18,10 +18,13 @@ endif
 OUTPUT_SHARE = libptframework.$(SO_EXT)
 OUTPUT = libptframework.a
 
+all: $(OUTPUT) $(OUTPUT_SHARE)
 
 $(OUTPUT) : $(OBJECTS)
-	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -luv -lcrypto -lptnetwork
 	ar cr $(OUTPUT) $(OBJECTS) 
+
+$(OUTPUT_SHARE) : $(OBJECTS)
+	$(CC) -o $(OUTPUT_SHARE) -shared $(OBJECTS) -luv -lcrypto -lptnetwork
 
 $(OBJECTS) : $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES)

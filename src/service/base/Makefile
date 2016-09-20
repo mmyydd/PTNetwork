@@ -17,10 +17,17 @@ endif
 OUTPUT_SHARE = libptbase.$(SO_EXT)
 OUTPUT = libptbase.a 
 
-$(OUTPUT) $(OUTPUT_SHARE) : $(OBJECTS)
-	$(CC) -shared -luv -lcrypto -lprotobuf -lptproto++ -lptframework -o$(OUTPUT_SHARE) $(OBJECTS)
+all : $(OUTPUT) $(OUTPUT_SHARE)
+
+
+$(OUTPUT) : $(OBJECTS)
 	ar cr $(OUTPUT) $(OBJECTS)
-	
+
+
+$(OUTPUT_SHARE) : $(OBJECTS)
+	$(CC) -shared -luv -lcrypto -lprotobuf -lptproto++ -lptframework -o$(OUTPUT_SHARE) $(OBJECTS)
+
+
 $(OBJECTS) : $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES)
 
