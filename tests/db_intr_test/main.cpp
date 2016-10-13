@@ -79,7 +79,7 @@ void on_query_result(db_intr_handle *handle, void *arg)
 
 
 	fprintf(stderr, "=================================================================\n");
-	
+/*	
 	
 	try
 	{
@@ -116,6 +116,7 @@ void on_query_result(db_intr_handle *handle, void *arg)
 	{
 		fprintf(stderr, "catch:%s\n", exce.what());
 	}
+	*/
 }
 void on_timer(uv_timer_t *tm)
 {

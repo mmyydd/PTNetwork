@@ -8,6 +8,7 @@
 #include <set>
 #include <queue>
 #include <exception>
+#include <memory>
 #include <ptframework/common/common.h>
 #include <ptframework/common/message.h>
 #include <db_query.pb.h>

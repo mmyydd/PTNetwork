@@ -34,6 +34,13 @@ public:
 	bool shutdown();
 	int get_error();
 
+
+	bool send(struct pt_userinfo userinfo, struct net_header hdr, const unsigned char *data, uint32_t length);
+	bool send_json(struct pt_userinfo userinfo, Json::Value &root);
+
+	void sendall(struct net_header hdr, const unsigned char *data, uint32_t length);
+	void sendall_json(Json::Value &root);
+
 protected:
 	virtual void on_user_connected(struct pt_userinfo userinfo);
 	virtual void on_user_disconnected(struct pt_userinfo userinfo);
@@ -46,12 +53,6 @@ protected:
 	void on_gateway_connected(struct pt_sclient *user);
 	void on_gateway_recevied(struct pt_sclient *user, struct pt_buffer *buff);
 	void on_gateway_disconnect(struct pt_sclient *user);
-
-	bool send(struct pt_userinfo userinfo, struct net_header hdr, const unsigned char *data, uint32_t length);
-	bool send_json(struct pt_userinfo userinfo, Json::Value &root);
-
-	void sendall(struct net_header hdr, const unsigned char *data, uint32_t length);
-	void sendall_json(Json::Value &root);
 
 private:
 	struct pt_table *m_node_table;

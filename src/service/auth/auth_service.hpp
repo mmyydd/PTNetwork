@@ -21,7 +21,7 @@ public:
 	void on_user_logout(struct pt_userinfo userinfo, Json::Value &root);
 };
 
-struct AuthInfo
+struct auth_context
 {
 	struct pt_userinfo userinfo;
 	std::string str_token;
@@ -34,6 +34,14 @@ struct AuthInfo
 	bool is_vip;
 	int vip_level;
 
+	auth_context()
+	{
+		rank = 0;
+		elo = 0;
+		match_level= 0;
+		is_vip = false;
+		vip_level = 0;
+	}
 };
 
 #endif

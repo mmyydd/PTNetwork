@@ -1,6 +1,6 @@
 [submodule "PTNetwork"]
 	path = PTNetwork
-	url = git@github.com:number201724/PTNetwork.git
+	url = csgo_service@10.0.0.5:~/PTNetwork.git
 [submodule "PT_Proto"]
 	path = PT_Proto
-	url = git@github.com:number201724/PT_Proto.git
+	url = csgo_service@10.0.0.5:~/PT_Proto.git

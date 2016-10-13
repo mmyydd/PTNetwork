@@ -5,8 +5,8 @@
 #include "base64.hpp"
 #include "db_ext.hpp"
 
-
 extern db_ext *db;
+auth_service service;
 
 auth_service::auth_service()
 {
@@ -94,20 +94,19 @@ void auth_service::on_user_login(struct pt_userinfo userinfo, Json::Value &root)
 			break;
 		}
 
-		AuthInfo *authInfo = new AuthInfo();
-		authInfo->str_token = str_token;
-		authInfo->userinfo = userinfo;
-		authInfo->verify = verify;
-		authInfo->user_id = user_id;
-		db_intr_params params;
-
+		db_intr_value_c params;
 		params.push_back(db_intr_value(user_id));
 		params.push_back(db_intr_value(verify));
 
-		db->begin_query("csgo",
-				"SELECT * FROM access_token WHERE user_id = ? AND verify = ?",
-				params,
-				user_login_process_1,(void*)authInfo);
+		auth_context *context = new auth_context();
+		context->userinfo = userinfo;
+		context->str_token = str_token;
+		context->verify = verify;
+		context->user_id = user_id;
+
+		db->begin_query("csgo", 
+			"SELECT * FROM access_token WHERE user_id = ? AND verify = ?",
+			params, user_login_process_1, context);
 
 		success = true;
 
@@ -115,10 +114,21 @@ void auth_service::on_user_login(struct pt_userinfo userinfo, Json::Value &root)
 
 	if(success == false)
 	{
-		response["action"] = "auth";
+		response["action"] = "login";
 		response["code"] = RESPONSE_CODE_INVALID_PARAM;  //无效的参数
 		send_json(userinfo, response);
 	}
+}
+
+void action_error(struct pt_userinfo user, std::string action, std::string strerror, int error_code = RESPONSE_CODE_DB_ERROR)
+{
+	Json::Value response;
+
+	response["action"] = action;
+	response["code"] = error_code;
+	response["reason"] = strerror;
+
+	service.send_json(user, response);
 }
 
 void auth_service::on_user_logout(struct pt_userinfo userinfo, Json::Value &root)
@@ -126,28 +136,46 @@ void auth_service::on_user_logout(struct pt_userinfo userinfo, Json::Value &root
 	
 }
 
+void user_login_process_2(db_intr_handle *handle, void *arg)
+{
+	auth_context *context = (auth_context*)arg;
+	if(handle->has_error())
+	{
+		action_error(context->userinfo, "login", handle->get_strerror());
+		delete context;
+		return;
+	}
+}
 
 void user_login_process_1(db_intr_handle *handle, void *arg)
 {
-	Json::Value response;
-
-	AuthInfo *authinfo = (AuthInfo*)arg;
+	std::string nickname;
+	int vip_date = 0;
+	auth_context *context = (auth_context*)arg;
+	
 	try
 	{
-		db_intr_record_set record_set(*handle);
+		db_intr_record_set record_set(handle);
 
-		if(record_set.move_first() && record_set.get_record_count() > 0)
+		uint32_t n_count = record_set.get_record_count();
+
+		if(record_set.move_first() && n_count > 0)
 		{
-
+			record_set.get_field_value("nickname", nickname);
+			record_set.get_field_value("vip_date", vip_date);
 		}
-		else
-		{
-			response["action"] = "auth";
-		}
-
-
 	}
-	catch()
+	catch(db_intr_handle_exception &ex)
 	{
+		action_error(context->userinfo, "login", ex.what());
+		delete context;
+		return;
 	}
+
+
+	//用户认证成功
+	db_intr_value_c params;
+	params.push_back(db_intr_value(context->user_id));
+	db->begin_query("csgo", "SELECT * FROM userinfo WHERE user_id = ?",	params, user_login_process_2, context);
 }
+
