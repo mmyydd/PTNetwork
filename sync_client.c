@@ -97,10 +97,14 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 		return pt_sync_err_alloc_socket_fail;
 	}
 	
-	if(connect(sync_client->fd, &sync_client->adr, sizeof(sync_client->adr)) == 0)
+	if(connect(sync_client->fd, &sync_client->adr, sizeof(sync_client->adr)) != 0)
 	{
-		sync_client->is_connected = true;
-		return pt_sync_err_noerr;
+		sync_client->_errno = errno;
+
+		close(sync_client->fd);
+		sync_client->fd = -1;
+
+		return pt_sync_err_connect_fail;
 	}
 
 	
@@ -112,13 +116,8 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 	options = 0;
 	setsockopt(sync_client->fd, SOL_TCP, TCP_CORK, &options, sizeof(options));
 
-	
-	sync_client->_errno = errno;
-
-	close(sync_client->fd);
-	sync_client->fd = -1;
-
-	return pt_sync_err_connect_fail;
+	sync_client->is_connected = true;
+	return pt_sync_err_noerr;
 }
 
 int pt_sync_client_disconnect(struct pt_sync_client *sync_client)
