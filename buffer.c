@@ -1,6 +1,6 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/error.h>
-#include <ptnetwork/buffer.h>
+#include "common.h"
+#include "error.h"
+#include "buffer.h"
 
 struct pt_buffer_allocator buffer_allocator = {0, 10000, false, NULL};
 

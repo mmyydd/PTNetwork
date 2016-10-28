@@ -1,7 +1,7 @@
 #ifndef _PT_PACKET_INCLUED_H_
 #define _PT_PACKET_INCLUED_H_
 
-#include <ptnetwork/proto.h>
+#include "proto.h"
 
 
 

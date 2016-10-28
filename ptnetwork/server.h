@@ -1,29 +1,12 @@
 #ifndef _PT_SERVER_INCLUED_H_
 #define _PT_SERVER_INCLUED_H_
 
-#include <ptnetwork/common.h>
-#include <ptnetwork/buffer.h>
-#include <ptnetwork/table.h>
-#include <ptnetwork/packet.h>
-
 struct pt_server;
 struct pt_sclient;
 
 //默认的最大发送队列/用户
 #define NUMBER_MAX_SEND_QUEUE 100
 
-enum pt_disconnect_type_enum
-{
-	DISCONNECT_TYPE_EOF,
-	DISCONNECT_TYPE_FAKE,
-	DISCONNECT_TYPE_USER,
-	DISCONNECT_TYPE_OVERFLOW,
-	DISCONNECT_TYPE_CLOSE,
-	DISCONNECT_TYPE_SEND_FLOW,
-	DISCONNECT_TYPE_READ_FAIL,
-	DISCONNECT_TYPE_MAX_CONN,
-	DISCONNECT_TYPE_DECRYPT
-};
 struct pt_sclient
 {
     //用户唯一ID
@@ -53,7 +36,7 @@ struct pt_sclient
     void *data;
 
 	//断开状态
-	enum pt_disconnect_type_enum disconnect_type;
+	enum pt_disconnect_type disconnect_type;
 
 	//引用计数器
 	uint32_t ref_count;
@@ -67,19 +50,6 @@ typedef void (*pt_server_on_disconnect)(struct pt_sclient *user);
 typedef void (*pt_server_warning_user)(struct pt_sclient *user);
 typedef void (*pt_server_error_notify)(struct pt_server *server, const char *function);
 typedef void (*pt_server_on_close)(struct pt_server *server, qboolean is_free);
-
-enum pt_server_state
-{
-	//结构创建完成后的状态
-	PT_STATE_CREATED,
-	//结构初始化后的状态
-	PT_STATE_INITIALIZED,
-	//服务器正在执行中
-    PT_STATE_RUNNING,
-};
-
-//服务器已经被Shutdown
-#define PT_STATE_SHUTDOWN PT_STATE_INITIALIZED
 
 struct pt_server
 {
@@ -118,7 +88,7 @@ struct pt_server
     //用户data
     void *data;
     
-    enum pt_server_state state;
+    enum pt_state state;
     
     /*
         提供给libuv的回调函数

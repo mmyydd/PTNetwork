@@ -1,4 +1,4 @@
-#include <ptnetwork/crc32.h>
+#include "crc32.h"
 
 
 static uint32_t crc32_tab[] = {

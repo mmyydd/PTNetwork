@@ -1,6 +1,6 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/buffer.h>
-#include <ptnetwork/buffer_reader.h>
+#include "common.h"
+#include "buffer.h"
+#include "buffer_reader.h"
 
 void buffer_reader_init(struct buffer_reader *reader, struct pt_buffer *buff)
 {

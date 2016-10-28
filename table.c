@@ -1,6 +1,6 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/table.h>
-#include <ptnetwork/error.h>
+#include "common.h"
+#include "table.h"
+#include "error.h"
 
 
 struct pt_table *pt_table_new_ex(int granularity)

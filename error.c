@@ -1,5 +1,5 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/error.h>
+#include "common.h"
+#include "error.h"
 #include <stdarg.h>
 
 error_report_cb error_callbacks[ERROR_LEVEL_TOTAL] = {NULL};

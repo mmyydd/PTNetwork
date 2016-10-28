@@ -1,5 +1,5 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/gc_malloc.h>
+#include "common.h"
+#include "gc_malloc.h"
 
 struct st_gcmalloc_record
 {

@@ -1,7 +1,10 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/error.h>
-#include <ptnetwork/crc32.h>
-#include <ptnetwork/server.h>
+#include "common.h"
+#include "error.h"
+#include "crc32.h"
+#include "buffer.h"
+#include "packet.h"
+#include "table.h"
+#include "server.h"
 
 static void pt_server_alloc_buf(uv_handle_t* handle,size_t suggested_size,uv_buf_t* buf) {
     uv_stream_t *sock = (uv_stream_t*)handle;
@@ -111,7 +114,7 @@ static void pt_server_on_close_conn(uv_handle_t* peer) {
 
 
 //关闭一个客户端的连接
-static void pt_server_close_conn(struct pt_sclient *user, enum pt_disconnect_type_enum disconn_type)
+static void pt_server_close_conn(struct pt_sclient *user, enum pt_disconnect_type disconn_type)
 {
     struct pt_server *server = user->server;
     
@@ -131,17 +134,29 @@ static void pt_server_close_conn(struct pt_sclient *user, enum pt_disconnect_typ
 static void pt_server_on_close_listener(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-    server->state = PT_STATE_SHUTDOWN;
-	if(server->on_close) server->on_close(server, false);
+
+    server->state = PT_STATE_STOP;
+
+	if(server->on_close)
+	{
+		server->on_close(server, false);
+	}
 }
 
 static void pt_server_on_close_free(uv_handle_t *handle)
 {
     struct pt_server *server = handle->data;
-	server->state = PT_STATE_SHUTDOWN;
-	if(server->on_close) server->on_close(server, true);
+
+	server->state = PT_STATE_STOP;
+
+	if(server->on_close)
+	{
+		server->on_close(server, true);
+	}
+
 	pt_server_free(server);
 }
+
 /*
  libuv的数据包收到函数
  
@@ -317,7 +332,7 @@ struct pt_server* pt_server_new()
     server->clients = pt_table_new();
     
     //初始化libuv的回调函数
-    server->state = PT_STATE_CREATED;
+    server->state = PT_STATE_NORMAL;
     //server->connection_cb = pt_server_connection_cb;
     //server->read_cb = pt_server_read_cb;
     //server->write_cb = pt_server_write_cb;
@@ -328,7 +343,7 @@ struct pt_server* pt_server_new()
 
 void pt_server_free(struct pt_server *srv)
 {
-    if(srv->state == PT_STATE_RUNNING){
+    if(srv->state == PT_STATE_START){
         FATAL("server not shutdown", __FUNCTION__, __FILE__, __LINE__);
 		return;
     }
@@ -345,7 +360,8 @@ void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay)
 void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int keep_alive_delay,pt_server_on_connect on_conn,
                         pt_server_on_receive on_receive, pt_server_on_disconnect on_disconnect)
 {
-    if(server->state != PT_STATE_CREATED){
+    if(server->state != PT_STATE_NORMAL)
+	{
         FATAL("server already initialize",__FUNCTION__,__FILE__,__LINE__);
         return;
     }
@@ -357,21 +373,23 @@ void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int
     server->on_disconnect = on_disconnect;
     server->keep_alive_delay = keep_alive_delay;
     
-    server->state = PT_STATE_INITIALIZED;
+    server->state = PT_STATE_INIT;
 }
 
 qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t port)
 {
     struct sockaddr_in adr;
     
-    if(server->state != PT_STATE_INITIALIZED)
+    if(server->state != PT_STATE_INIT)
     {
 		if(server->error_notify) server->error_notify(server, "server state not initialized");
         return false;
     }
     
     server->last_error = uv_tcp_init(server->loop, &server->listener.tcp);
-    if(server->last_error != 0){
+
+    if(server->last_error != 0)
+	{
 		if(server->error_notify) server->error_notify(server, "pt_server_start::uv_tcp_init");
 		return false;
     }
@@ -383,26 +401,29 @@ qboolean pt_server_start(struct pt_server *server, const char* host, uint16_t po
     
     server->last_error = uv_tcp_bind(&server->listener.tcp, (const struct sockaddr*)&adr, 0);
     
-    if(server->last_error != 0){
+    if(server->last_error != 0)
+	{
 		if(server->error_notify) server->error_notify(server, "pt_server_start::uv_tcp_bind");
         return false;
     }
     
     server->last_error = uv_listen((uv_stream_t*)&server->listener, SOMAXCONN, pt_server_connection_cb);
-    if(server->last_error != 0){
+
+    if(server->last_error != 0)
+	{
 		if(server->error_notify) server->error_notify(server, "pt_server_start::uv_listen");
         return false;
     }
 
 	server->start_time = time(NULL);	
-    server->state = PT_STATE_RUNNING;
+    server->state = PT_STATE_START;
     return true;
 }
 
 
 qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
 {
-    if(server->state != PT_STATE_INITIALIZED)
+    if(server->state != PT_STATE_INIT)
     {
 		if(server->error_notify) server->error_notify(server, "server state not initialized");
         return false;
@@ -434,7 +455,7 @@ qboolean pt_server_start_pipe(struct pt_server *server, const char *path)
     
 
 	server->start_time = time(NULL);	
-    server->state = PT_STATE_RUNNING;
+    server->state = PT_STATE_START;
     return true;
 }
 
@@ -525,16 +546,24 @@ static void pt_server_close_all_cb(struct pt_table *ptable, uint64_t id, void *p
 
 void pt_server_close(struct pt_server *server)
 {
-    pt_table_enum(server->clients, pt_server_close_all_cb, server);
-    pt_table_clear(server->clients);
-    uv_close((uv_handle_t*)&server->listener, pt_server_on_close_listener);
+	if(server->state == PT_STATE_START)
+	{
+		server->state = PT_STATE_BUSY;
+		pt_table_enum(server->clients, pt_server_close_all_cb, server);
+		pt_table_clear(server->clients);
+		uv_close((uv_handle_t*)&server->listener, pt_server_on_close_listener);
+	}
 }
 
 void pt_server_close_free(struct pt_server *server)
 {
-    pt_table_enum(server->clients, pt_server_close_all_cb, server);
-    pt_table_clear(server->clients);
-    uv_close((uv_handle_t*)&server->listener, pt_server_on_close_free);
+	if(server->state == PT_STATE_START)
+	{
+		server->state = PT_STATE_BUSY;
+		pt_table_enum(server->clients, pt_server_close_all_cb, server);
+		pt_table_clear(server->clients);
+		uv_close((uv_handle_t*)&server->listener, pt_server_on_close_free);
+	}
 }
 
 qboolean pt_server_disconnect_conn(struct pt_sclient *user)

@@ -1,8 +1,8 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/buffer.h>
-#include <ptnetwork/error.h>
-#include <ptnetwork/crc32.h>
-#include <ptnetwork/packet.h>
+#include "common.h"
+#include "buffer.h"
+#include "error.h"
+#include "crc32.h"
+#include "packet.h"
 
 uint32_t pt_max_pack_size = 0x10000;
 

@@ -1,9 +1,12 @@
-#include <ptnetwork/common.h>
-#include <ptnetwork/crc32.h>
-#include <ptnetwork/error.h>
-#include <ptnetwork/client.h>
+#include "common.h"
+#include "crc32.h"
+#include "error.h"
+#include "buffer.h"
+#include "packet.h"
+#include "async_client.h"
 
-static void pt_client_alloc_cb(uv_handle_t* handle,size_t suggested_size,uv_buf_t* buf) {
+static void pt_client_alloc_cb(uv_handle_t* handle,size_t suggested_size,uv_buf_t* buf)
+{
     uv_stream_t *sock = (uv_stream_t*)handle;
     struct pt_client *user = sock->data;
     
@@ -39,16 +42,34 @@ static void pt_client_write_cb(uv_write_t* req, int status)
 /*
  当成功关闭了handle后，释放用户资源
  */
-static void pt_client_close_cb(uv_handle_t* peer) {
-    uv_stream_t *sock = (uv_stream_t*)peer;
-    struct pt_client *client = sock->data;
-    
-    bzero(&client->conn, sizeof(client->conn));
-    
-    client->conn.stream.data = client;
-    if(client->buf) {
-        client->buf->length = 0;
-    }
+static void pt_client_close_cb(uv_handle_t* peer)
+{
+	struct pt_client *conn = peer->data;
+
+    bzero(&conn->conn, sizeof(conn->conn));
+	conn->conn.stream.data = conn;
+
+	//seek to begin
+	conn->buf->length = 0;
+	
+	if(conn->async_buf)
+	{
+		MEM_FREE(conn->async_buf->base);
+		MEM_FREE(conn->async_buf);
+
+		conn->async_buf = NULL;
+	}
+
+	if(conn->state == PT_STATE_CONNECT_FAILED)
+	{
+		conn->on_connected(conn, conn->state);
+	}
+	else
+	{
+		conn->on_disconnected(conn);
+	}
+
+	conn->state = PT_STATE_INIT;
 }
 
 static void pt_client_read_cb(uv_stream_t* stream,
@@ -71,7 +92,8 @@ static void pt_client_read_cb(uv_stream_t* stream,
     pt_buffer_write(client->buf, (unsigned char*)buf->base, (uint32_t)nread);
     
     //循环读取缓冲区数据，如果数据错误则返回false且不再执行本while
-    while(pt_get_packet_status(client->buf, &packet_err)){
+    while(pt_get_packet_status(client->buf, &packet_err))
+	{
         async_buf = pt_split_packet(client->buf);
         if(async_buf != NULL)
         {
@@ -97,37 +119,57 @@ static void pt_client_read_cb(uv_stream_t* stream,
 static void pt_client_connect_cb(uv_connect_t* req, int status)
 {
     struct pt_client *client = req->data;
-    
-    if(status != 0){
+    MEM_FREE(req);
+
+    if(status != 0)
+	{
 		client->last_error = status;
-        client->state = PT_NO_CONNECT;
-        MEM_FREE(req);
-        if(client->on_connected){
-            client->on_connected(client, PT_CONNECT_FAILED);
-        }
-        return;
+	
+		//是否已经关闭标记
+		if(client->state == PT_STATE_BUSY)
+		{
+			uv_close((uv_handle_t*)&client->conn.stream, pt_client_close_cb);
+		}
+		else
+		{
+			client->state = PT_STATE_CONNECT_FAILED;
+			uv_close((uv_handle_t*)&client->conn.stream, pt_client_close_cb);
+		}
+		return;
     }
+		
+	//客户端已经设置成关闭标记
+	if(client->state == PT_STATE_BUSY)
+	{
+		uv_close((uv_handle_t*)&client->conn.stream, pt_client_close_cb);
+		return;
+	}
+
+    client->state = PT_STATE_CONNECTED;
     
-    client->state = PT_CONNECTED;
-    
-    if(client->enable_encrypt) {
+    if(client->enable_encrypt)
+	{
         RC4_set_key(&client->encrypt_ctx, sizeof(client->encrypt_key), (const unsigned char*)&client->encrypt_key);
         client->serial = 0;
     }
     
-    if(client->on_connected){
+    if(client->on_connected)
+	{
         client->on_connected(client, client->state);
     }
     
     client->last_error = uv_read_start((uv_stream_t*)&client->conn, pt_client_alloc_cb, pt_client_read_cb);
     
-    if(client->last_error){
-		if(client->on_error) client->on_error(client, "uv_read_start");
+    if(client->last_error)
+	{
+		if(client->on_error)
+		{
+			client->on_error(client, "uv_read_start");
+		}
+
 		pt_client_disconnect(client);
     }
-    
-    MEM_FREE(req);
-}
+} 
 
 struct pt_client *pt_client_new()
 {
@@ -141,6 +183,7 @@ struct pt_client *pt_client_new()
     client->connect_cb = pt_client_connect_cb;
     client->read_cb = pt_client_read_cb;
     client->write_cb = pt_client_write_cb;
+	client->state = PT_STATE_NORMAL;
     
     return client;
 }
@@ -156,81 +199,102 @@ void pt_client_set_encrypt(struct pt_client *client, const uint32_t encrypt_key[
 
 void pt_client_init(uv_loop_t *loop, struct pt_client *client, pt_cli_on_connected on_connected, pt_cli_on_receive on_receive, pt_cli_on_disconnected on_disconnected)
 {
+	if(client->state != PT_STATE_NORMAL) return;
+	
     client->loop = loop;
     client->conn.stream.data = client;
     client->on_connected = on_connected;
     client->on_receive = on_receive;
     client->on_disconnected = on_disconnected;
+
+	client->state = PT_STATE_INIT;
 }
 
 void pt_client_free(struct pt_client *client)
 {
-    if(client->buf){
-        pt_buffer_free(client->buf);
-        client->buf = NULL;
-    }
-    
-    if(client->async_buf){
-        MEM_FREE(client->async_buf->base);
-        MEM_FREE(client->async_buf);
-        client->async_buf = NULL;
-    }
+    pt_buffer_free(client->buf);
+	client->buf = NULL;
     
     MEM_FREE(client);
 }
 
 qboolean pt_client_send(struct pt_client *client, struct pt_buffer *buff)
 {
-    if(client->state != PT_CONNECTED) {
+	qboolean is_completed = false;
+
+    if(client->state != PT_STATE_CONNECTED)
+	{
 		client->last_error = UV_ENOTCONN;
-		return false;
+		pt_buffer_free(buff);
+		return is_completed;
 	}
 
     struct pt_wreq *req = MEM_MALLOC(sizeof(struct pt_wreq));
+
     req->buff = buff;
     req->data = client;
     req->buf = uv_buf_init((char*)buff->buff, buff->length);
-    client->last_error = uv_write(&req->req, (uv_stream_t*)&client->conn, &req->buf, 1, pt_client_write_cb);
-    
-    if(client->last_error){
-		if(client->on_error) client->on_error(client, "uv_write");
-        MEM_FREE(req);
-        pt_buffer_free(buff);
-		return false;
-    }
 
-	return true;
+    client->last_error = uv_write(&req->req, (uv_stream_t*)&client->conn, &req->buf, 1, pt_client_write_cb);
+
+	if(client->last_error == 0)
+	{
+		is_completed = true;
+	}
+	else
+	{
+		if(client->on_error)
+		{
+			client->on_error(client, "uv_write");
+		}
+
+		MEM_FREE(req);
+
+		pt_buffer_free(buff);
+	}
+    
+
+	return is_completed;
 }
 
 qboolean pt_client_connect(struct pt_client *client, const char *host, uint16_t port)
 {
     struct sockaddr_in adr;
     
-    if(client->state != PT_NO_CONNECT) {
+    if(client->state != PT_STATE_INIT)
+	{
 		client->last_error = UV_EISCONN;
 		return false;
 	}
 
 	client->last_error = uv_tcp_init(client->loop,&client->conn.tcp);
+
     if(client->last_error){
 		if(client->on_error) client->on_error(client, "uv_tcp_init");
 		return false;
     }
+
+	client->is_shutdown = false;
     
     uv_connect_t *conn = MEM_MALLOC(sizeof(uv_connect_t));
     conn->data = client;
     
     uv_ip4_addr(host, port, &adr);
     
-    client->state = PT_CONNECTING;
+    client->state = PT_STATE_CONNECTING;
     
     client->last_error = uv_tcp_connect(conn, &client->conn.tcp, (const struct sockaddr*)&adr, pt_client_connect_cb);
  
  	if(client->last_error != 0)
 	{
-		if(client->on_error) client->on_error(client, "uv_tcp_connect");
-		if(client->on_connected) client->on_connected(client, PT_CONNECT_FAILED);
-		client->state = PT_NO_CONNECT;
+		if(client->on_error)
+		{
+			client->on_error(client, "uv_tcp_connect");
+		}
+
+		client->on_connected(client, PT_STATE_CONNECT_FAILED);
+
+		client->state = PT_STATE_INIT;
 
 		return false;
     }
@@ -241,7 +305,8 @@ qboolean pt_client_connect(struct pt_client *client, const char *host, uint16_t 
 
 qboolean pt_client_connect_pipe(struct pt_client *client, const char *path)
 {
-    if(client->state != PT_NO_CONNECT) {
+    if(client->state != PT_STATE_INIT)
+	{
 		client->last_error = UV_EISCONN;
 		return false;
 	}
@@ -257,7 +322,7 @@ qboolean pt_client_connect_pipe(struct pt_client *client, const char *path)
     uv_connect_t *conn = MEM_MALLOC(sizeof(uv_connect_t));
     conn->data = client;
     
-    client->state = PT_CONNECTING;
+    client->state = PT_STATE_CONNECTING;
     
 	uv_pipe_connect(conn, &client->conn.pipe, path, pt_client_connect_cb);
 
@@ -266,13 +331,13 @@ qboolean pt_client_connect_pipe(struct pt_client *client, const char *path)
 
 void pt_client_disconnect(struct pt_client *client)
 {
-    if(client->state != PT_CONNECTED) return;
-    
-    client->state = PT_NO_CONNECT;
-    
-    if(client->on_disconnected){
-        client->on_disconnected(client);
-    }
-    
-    uv_close((uv_handle_t*)&client->conn.stream, pt_client_close_cb);
+	if(client->state != PT_STATE_INIT)
+	{
+		if(client->state == PT_STATE_CONNECTED)
+		{
+			uv_close((uv_handle_t*)&client->conn.stream, pt_client_close_cb);
+		}
+
+		client->state = PT_STATE_BUSY;
+	}
 }
