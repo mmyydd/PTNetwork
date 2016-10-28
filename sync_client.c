@@ -41,6 +41,7 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 
 	sprintf(str_port, "%u", port);
 	if ((rv = getaddrinfo( host, str_port,  &hints, &servinfo)) != 0) {
+		sync_client->_errno = errno;
 		return pt_sync_err_getaddrinfo_fail;
 	}
 
@@ -94,6 +95,7 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 
 	if(sync_client->fd == -1)
 	{
+		sync_client->_errno = errno;
 		return pt_sync_err_alloc_socket_fail;
 	}
 	
@@ -157,6 +159,7 @@ int pt_sync_client_send(struct pt_sync_client *sync_client, unsigned char *data,
 
 		if(ret <= 0)
 		{
+			sync_client->_errno = errno;
 			pt_sync_client_disconnect(sync_client);
 			return pt_sync_err_disconnected;
 		}
@@ -214,6 +217,7 @@ int pt_sync_client_recv(struct pt_sync_client *sync_client, unsigned char *buffe
 
 	if(ret <= 0)
 	{
+		sync_client->_errno = errno;
 		pt_sync_client_disconnect(sync_client);
 		return pt_sync_err_disconnected;
 	}
