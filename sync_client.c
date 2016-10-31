@@ -59,7 +59,10 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 	}
 
 	memcpy( &sync_client->adr, &adr, sizeof( adr ) );
+
+	sync_client->is_un = false;
 	sync_client->is_set_adr = true;
+
 	freeaddrinfo(servinfo);
 
 	return pt_sync_err_noerr;
@@ -67,13 +70,10 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 
 void pt_sync_client_set_connect_pipe(struct pt_sync_client *sync_client, const char *file)
 {
-	struct sockaddr_un adr;
+	sync_client->un_adr.sun_family = PF_UNIX;
+	strcpy(sync_client->un_adr.sun_path, file);
 
-	adr.sun_family = PF_UNIX;
-	strcpy(adr.sun_path, file);
-	
-	memcpy( &sync_client->adr, &adr, sizeof( adr ) );
-
+	sync_client->is_un = true;
 	sync_client->is_set_adr = true;
 }
 
@@ -81,6 +81,7 @@ void pt_sync_client_set_connect_pipe(struct pt_sync_client *sync_client, const c
 int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 {
 	int options;
+
 	if(sync_client->is_set_adr == false)
 	{
 		return pt_sync_err_no_set_adr;
@@ -90,16 +91,31 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 	{
 		return pt_sync_err_already_connected;
 	}
-
-	sync_client->fd = socket(sync_client->adr.sa_family, SOCK_STREAM, 0);
+	if(sync_client->is_un)
+	{
+		sync_client->fd = socket(PF_UNIX, SOCK_STREAM, 0);
+	}
+	else
+	{
+		sync_client->fd = socket(AF_INET, SOCK_STREAM, 0);
+	}
 
 	if(sync_client->fd == -1)
 	{
 		sync_client->_errno = errno;
 		return pt_sync_err_alloc_socket_fail;
 	}
-	
-	if(connect(sync_client->fd, &sync_client->adr, sizeof(sync_client->adr)) != 0)
+
+	if(sync_client->is_un)
+	{
+		options = connect(sync_client->fd, (struct sockaddr *)&sync_client->un_adr, sizeof(sync_client->un_adr));
+	}
+	else
+	{
+		options = connect(sync_client->fd, (struct sockaddr *)&sync_client->adr, sizeof(sync_client->adr));
+	}
+
+	if(options != 0)
 	{
 		sync_client->_errno = errno;
 

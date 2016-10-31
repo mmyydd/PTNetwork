@@ -2,7 +2,7 @@
 #define _PT_SYNC_CLIENT_H_INCLUDED_
 
 #include "common.h"
-
+#include <sys/un.h>
 enum pt_sync_error
 {
 	pt_sync_err_noerr,
@@ -23,8 +23,10 @@ struct pt_sync_client
 	qboolean auto_reconnect;
 	qboolean is_connected;
 	qboolean is_set_adr;
+	qboolean is_un;
 
-	struct sockaddr adr;
+	struct sockaddr_in adr;
+	struct sockaddr_un un_adr;
 
 	int _errno;
 	int fd;
