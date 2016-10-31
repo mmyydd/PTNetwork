@@ -50,7 +50,6 @@ typedef void (*pt_server_on_disconnect)(struct pt_sclient *user);
 typedef void (*pt_server_warning_user)(struct pt_sclient *user);
 typedef void (*pt_server_error_notify)(struct pt_server *server, const char *function);
 typedef void (*pt_server_on_close)(struct pt_server *server, qboolean is_free);
-
 struct pt_server
 {
     //客户端每次进入的唯一值

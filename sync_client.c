@@ -214,6 +214,8 @@ resend:
 		}
 	}
 
+	pt_buffer_free(buffer);
+
 	return ret;
 }
 
