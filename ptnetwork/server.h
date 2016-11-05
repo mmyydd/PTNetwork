@@ -182,6 +182,7 @@ void pt_server_send_to_all(struct pt_server *server, struct pt_buffer *buff);
 
 //服务器请求断开一个用户的连接
 qboolean pt_server_disconnect_conn(struct pt_sclient *user);
+qboolean pt_server_disconnect_conn_force(struct pt_sclient *user);
 
 //关闭服务器
 void pt_server_close(struct pt_server *server);

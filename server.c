@@ -112,20 +112,30 @@ static void pt_server_on_close_conn(uv_handle_t* peer) {
     pt_sclient_free(user);
 }
 
-
 //关闭一个客户端的连接
 static void pt_server_close_conn(struct pt_sclient *user, enum pt_disconnect_type disconn_type)
 {
     struct pt_server *server = user->server;
     
     //检查用户是否已被关闭
-    if(user->connected  == false) {
+    if(user->connected == false) 
+	{
         return;
     }
     
     user->connected = false;
 	user->disconnect_type = disconn_type;
+    uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
+}
 
+static void pt_server_shutdown_cb(uv_shutdown_t *req, int status)
+{
+	struct pt_sclient *user = req->data;
+
+	MEM_FREE(req);
+	req = NULL;
+
+	user->disconnect_type = DISCONNECT_TYPE_CLOSE;
     uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
 }
 
@@ -568,13 +578,41 @@ void pt_server_close_free(struct pt_server *server)
 
 qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 {
-    if(user->connected){
-        pt_server_close_conn(user, DISCONNECT_TYPE_USER);
+	uv_shutdown_t *req;
+    if(user->connected)
+	{
+		user->connected = false;
+
+		req = MEM_MALLOC(sizeof(uv_shutdown_t));
+		req->data = user;
+
+		user->server->last_error = uv_shutdown(req, &user->sock.stream, pt_server_shutdown_cb);
+
+		if(user->server->last_error != 0)
+		{
+			MEM_FREE(req);
+
+			user->disconnect_type = DISCONNECT_TYPE_CLOSE;
+			uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
+		}
         return true;
     }
     return false;
 }
 
+qboolean pt_server_disconnect_conn_force(struct pt_sclient *user)
+{
+	uv_shutdown_t *req;
+    if(user->connected)
+	{
+		user->connected = false;
+
+		user->disconnect_type = DISCONNECT_TYPE_CLOSE;
+		uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);
+        return true;
+    }
+    return false;
+}
 
 struct pt_sclient *pt_server_find_sclient(struct pt_server *server, uint64_t id)
 {
