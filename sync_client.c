@@ -208,7 +208,8 @@ resend:
 	if(ret == pt_sync_err_disconnected && sync_client->auto_reconnect)
 	{
 		ret = pt_sync_client_real_connect(sync_client);
-		if(ret)
+
+		if(ret == pt_sync_err_noerr)
 		{
 			goto resend;
 		}
