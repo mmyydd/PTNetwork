@@ -17,6 +17,7 @@ extern "C"{
 #include <ptnetwork/gc_malloc.h>
 #include <ptnetwork/async_client.h>
 #include <ptnetwork/sync_client.h>
+#include <ptnetwork/eventhandler.h>
 
 #ifdef __cplusplus
 };
