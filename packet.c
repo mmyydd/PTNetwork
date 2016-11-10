@@ -1,6 +1,6 @@
 #include "common.h"
 #include "buffer.h"
-#include "error.h"
+#include "pt_error.h"
 #include "crc32.h"
 #include "packet.h"
 
@@ -83,7 +83,7 @@ qboolean pt_decrypt_package(uint32_t serial,RC4_KEY *ctx, struct pt_buffer *buff
     uint32_t length = pt_get_packet_size(buff);
     
     if(length < sizeof(uint32_t)){
-        TRACE("length < sizeof(uint32_t)", __FUNCTION__, __FILE__, __LINE__);
+        PT_TRACE("length < sizeof(uint32_t)", __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
     
@@ -92,12 +92,12 @@ qboolean pt_decrypt_package(uint32_t serial,RC4_KEY *ctx, struct pt_buffer *buff
     if(*(uint32_t*)data != serial){
         printf("serial:%08x  true:%08x\n",*(uint32_t*)data,serial);
         
-        TRACE("data != serial", __FUNCTION__, __FILE__, __LINE__);
+        PT_TRACE("data != serial", __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
     
     if(crc32(0, data, length) != hdr->crc){
-        TRACE("crc32(0, data, length) != hdr->crc", __FUNCTION__, __FILE__, __LINE__);
+        PT_TRACE("crc32(0, data, length) != hdr->crc", __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
     

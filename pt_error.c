@@ -1,10 +1,10 @@
 #include "common.h"
-#include "error.h"
+#include "pt_error.h"
 #include <stdarg.h>
 
 error_report_cb error_callbacks[ERROR_LEVEL_TOTAL] = {NULL};
 
-void FATAL(const char *message, const char *function, const char *file, int line)
+void PT_FATAL(const char *message, const char *function, const char *file, int line)
 {
     if(error_callbacks[ERROR_LEVEL_FATAL])
     {
@@ -17,7 +17,7 @@ void FATAL(const char *message, const char *function, const char *file, int line
 	}
 }
 
-void ERROR(const char *message, const char *function, const char *file, int line)
+void PT_ERROR(const char *message, const char *function, const char *file, int line)
 {
     if(error_callbacks[ERROR_LEVEL_ERROR])
     {
@@ -30,7 +30,7 @@ void ERROR(const char *message, const char *function, const char *file, int line
 
 }
 
-void LOG(const char *message, const char *function, const char *file, int line)
+void PT_LOG(const char *message, const char *function, const char *file, int line)
 {
     if(error_callbacks[ERROR_LEVEL_LOG])
     {
@@ -42,7 +42,7 @@ void LOG(const char *message, const char *function, const char *file, int line)
 	}
 }
 
-void TRACE(const char *message, const char *function, const char *file, int line)
+void PT_TRACE(const char *message, const char *function, const char *file, int line)
 {
     if(error_callbacks[ERROR_LEVEL_TRACE])
     {
@@ -54,7 +54,7 @@ void TRACE(const char *message, const char *function, const char *file, int line
 	}
 }
 
-void WARNING(const char *message, const char *function, const char *file, int line)
+void PT_WARNING(const char *message, const char *function, const char *file, int line)
 {
     if(error_callbacks[ERROR_LEVEL_WARNING])
     {
@@ -85,22 +85,22 @@ void private_WriteLog(int level, const char *function, const char *file, int lin
 	switch(level)
 	{
 		case ERROR_LEVEL_ERROR:
-			ERROR(strbuf, function, file, line);
+			PT_ERROR(strbuf, function, file, line);
 			break;
 		case ERROR_LEVEL_LOG:
-			LOG(strbuf, function, file, line);
+			PT_LOG(strbuf, function, file, line);
 			break;
 		case ERROR_LEVEL_FATAL:
-			FATAL(strbuf, function, file, line);
+			PT_FATAL(strbuf, function, file, line);
 			break;
 		case ERROR_LEVEL_TRACE:
-			TRACE(strbuf, function, file, line);
+			PT_TRACE(strbuf, function, file, line);
 			break;
 		case ERROR_LEVEL_WARNING:
-			WARNING(strbuf, function, file, line);
+			PT_WARNING(strbuf, function, file, line);
 			break;
 		default:
-			FATAL(strbuf, function, file, line);
+			PT_FATAL(strbuf, function, file, line);
 			break;
 	}
 }
@@ -113,5 +113,5 @@ void WriteLog(const char *fmt, ...)
 	va_start(args, fmt);
 	vsnprintf(strbuf, sizeof(strbuf), fmt, args);
 
-	LOG(strbuf, __FUNCTION__, __FILE__, __LINE__);
+	PT_LOG(strbuf, __FUNCTION__, __FILE__, __LINE__);
 }

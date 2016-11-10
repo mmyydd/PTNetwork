@@ -1,6 +1,6 @@
 #include "common.h"
 #include "mymemory.h"
-#include "error.h"
+#include "pt_error.h"
 
 #define MEMORY_DEBUG_LIMIT 100000
 
@@ -93,7 +93,7 @@ void *emalloc(size_t size, const char *function, const char *file, int line)
     
     if( ptr == NULL )
     {
-        FATAL("allocate memory failed", function,file,line);
+        PT_FATAL("allocate memory failed", function,file,line);
     }
 	register_ptr(ptr, function, file, line);
     return ptr;
@@ -116,7 +116,7 @@ void* erealloc(void* ptr, size_t n, const char *function, const char *file, int 
     
     if( new_ptr == NULL )
     {
-        FATAL("allocate memory failed", function,file,line);
+        PT_FATAL("allocate memory failed", function,file,line);
     }
 
 	register_ptr(new_ptr, function, file, line);
@@ -131,7 +131,7 @@ void* ecalloc(size_t count, size_t size, const char *function, const char *file,
     
     if( ptr == NULL )
     {
-        FATAL("allocate memory failed", function,file,line);
+        PT_FATAL("allocate memory failed", function,file,line);
     }
 
 	register_ptr(ptr, function, file, line);

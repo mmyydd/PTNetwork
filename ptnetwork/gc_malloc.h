@@ -1,4 +1,4 @@
-#ifndef _GCMALLOC_INCLUDED_H_
+﻿#ifndef _GCMALLOC_INCLUDED_H_
 #define _GCMALLOC_INCLUDED_H_
 struct st_gcmalloc_frame;
 

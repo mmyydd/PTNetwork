@@ -1,6 +1,6 @@
 INSTALL_DIR = /usr/local
 
-OBJECTS = buffer.o buffer_reader.o packet.o table.o crc32.o mymemory.o server.o error.o gc_malloc.o async_client.o sync_client.o eventhandler.o
+OBJECTS = buffer.o buffer_reader.o packet.o table.o crc32.o mymemory.o server.o pt_error.o gc_malloc.o async_client.o sync_client.o eventhandler.o
 
 CFLAGS = -c -I./ptnetwork/ -O2 -DNDEBUG -Wmultichar
 CC = gcc
@@ -47,8 +47,8 @@ mymemory.o : mymemory.c
 server.o : server.c
 	$(CC) $(CFLAGS) server.c
 
-error.o : error.c
-	$(CC) $(CFLAGS) error.c
+pt_error.o : pt_error.c
+	$(CC) $(CFLAGS) pt_error.c
 
 gc_malloc.o : gc_malloc.c
 	$(CC) $(CFLAGS) gc_malloc.c

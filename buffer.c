@@ -1,5 +1,5 @@
 #include "common.h"
-#include "error.h"
+#include "pt_error.h"
 #include "buffer.h"
 
 struct pt_buffer_allocator buffer_allocator = {0, 10000, false, NULL};
@@ -36,12 +36,12 @@ static struct pt_buffer* pt_buffer_create(uint32_t length)
 {
     struct pt_buffer* buff;
     
-    buff = (struct pt_buffer*)MEM_MALLOC(sizeof(struct pt_buffer));
+    buff = (struct pt_buffer*)XMEM_MALLOC(sizeof(struct pt_buffer));
     
     buff->next = NULL;
     buff->length = 0;
     buff->max_length = ALIGN_SIZE(length, PAGESIZE);
-    buff->buff = (unsigned char*)MEM_MALLOC(buff->max_length);
+    buff->buff = (unsigned char*)XMEM_MALLOC(buff->max_length);
     buff->ref_count = 0;
     
     return buff;
@@ -51,8 +51,8 @@ static void pt_buffer_release(struct pt_buffer *buff)
 {
     assert(buff != NULL);
 
-    MEM_FREE(buff->buff);
-    MEM_FREE(buff);
+    XMEM_FREE(buff->buff);
+    XMEM_FREE(buff);
 }
 
 static struct pt_buffer *pt_buffer_alloc_by_allocator()
@@ -172,7 +172,7 @@ void pt_buffer_reserve(struct pt_buffer *buff, uint32_t length)
     
     new_length = ALIGN_SIZE(new_length, PAGESIZE);
     
-    buff->buff = (unsigned char*)MEM_REALLOC(buff->buff, new_length);
+    buff->buff = (unsigned char*)XMEM_REALLOC(buff->buff, new_length);
     buff->max_length = new_length;
 }
 

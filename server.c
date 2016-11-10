@@ -1,5 +1,5 @@
-#include "common.h"
-#include "error.h"
+﻿#include "common.h"
+#include "pt_error.h"
 #include "crc32.h"
 #include "buffer.h"
 #include "packet.h"
@@ -12,13 +12,13 @@ static void pt_server_alloc_buf(uv_handle_t* handle,size_t suggested_size,uv_buf
     
     if(user->async_buf){
         if(user->async_buf->len < suggested_size){
-            MEM_FREE(user->async_buf->base);
+            XMEM_FREE(user->async_buf->base);
             user->async_buf->len = suggested_size;
-            user->async_buf->base = MEM_MALLOC(suggested_size);
+            user->async_buf->base = XMEM_MALLOC(suggested_size);
         }
     } else {
-        user->async_buf = MEM_MALLOC(sizeof(*user->async_buf));
-        user->async_buf->base = MEM_MALLOC(suggested_size);
+        user->async_buf = XMEM_MALLOC(sizeof(*user->async_buf));
+        user->async_buf->base = XMEM_MALLOC(suggested_size);
         user->async_buf->len = suggested_size;
     }
      
@@ -40,7 +40,7 @@ static struct pt_sclient* pt_sclient_new(struct pt_server *server)
 {
     struct pt_sclient *user;
     
-    user = MEM_MALLOC(sizeof(struct pt_sclient));
+    user = XMEM_MALLOC(sizeof(struct pt_sclient));
     bzero(user, sizeof(struct pt_sclient));
     
     user->buf = pt_buffer_new(USER_DEFAULT_BUFF_SIZE);
@@ -58,12 +58,12 @@ static void pt_sclient_free(struct pt_sclient* user)
 		user->buf = NULL;
     
 		if(user->async_buf){
-			MEM_FREE(user->async_buf->base);
-			MEM_FREE(user->async_buf);
+			XMEM_FREE(user->async_buf->base);
+			XMEM_FREE(user->async_buf);
 			user->async_buf = NULL;
 		}
 
-		MEM_FREE(user);
+		XMEM_FREE(user);
 	}	
 }
 
@@ -85,7 +85,7 @@ static void pt_server_write_cb(uv_write_t* req, int status)
 
 	pt_sclient_free(user);
     pt_buffer_free(wreq->buff);
-    MEM_FREE(wreq);
+    XMEM_FREE(wreq);
 }
 
 /*
@@ -132,7 +132,7 @@ static void pt_server_shutdown_cb(uv_shutdown_t *req, int status)
 {
 	struct pt_sclient *user = req->data;
 
-	MEM_FREE(req);
+	XMEM_FREE(req);
 	req = NULL;
 
 	user->disconnect_type = DISCONNECT_TYPE_CLOSE;
@@ -335,7 +335,7 @@ static void pt_server_connection_cb(uv_stream_t* listener, int status)
 
 struct pt_server* pt_server_new()
 {
-    struct pt_server *server = (struct pt_server *)MEM_MALLOC(sizeof(struct pt_server));
+    struct pt_server *server = (struct pt_server *)XMEM_MALLOC(sizeof(struct pt_server));
     
     bzero(server, sizeof(struct pt_server));
     
@@ -354,12 +354,12 @@ struct pt_server* pt_server_new()
 void pt_server_free(struct pt_server *srv)
 {
     if(srv->state == PT_STATE_START){
-        FATAL("server not shutdown", __FUNCTION__, __FILE__, __LINE__);
+        PT_FATAL("server not shutdown", __FUNCTION__, __FILE__, __LINE__);
 		return;
     }
     
     pt_table_free(srv->clients);
-    MEM_FREE(srv);
+    XMEM_FREE(srv);
 }
 
 void pt_server_set_nodelay(struct pt_server *server, qboolean nodelay)
@@ -372,7 +372,7 @@ void pt_server_init(struct pt_server *server, uv_loop_t *loop, int max_conn, int
 {
     if(server->state != PT_STATE_NORMAL)
 	{
-        FATAL("server already initialize",__FUNCTION__,__FILE__,__LINE__);
+        PT_FATAL("server already initialize",__FUNCTION__,__FILE__,__LINE__);
         return;
     }
     
@@ -505,7 +505,7 @@ qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
         goto ProcedureEnd;
     }
     
-    struct pt_wreq *wreq = MEM_MALLOC(sizeof(struct pt_wreq));
+    struct pt_wreq *wreq = XMEM_MALLOC(sizeof(struct pt_wreq));
     
     //引用当前buffer
     pt_buffer_ref_increment(buff);
@@ -522,7 +522,7 @@ qboolean pt_server_send(struct pt_sclient *user, struct pt_buffer *buff)
 	if (user->server->last_error) {
 
 		if(server->error_notify) server->error_notify(server, "send::uv_write");
-        MEM_FREE(wreq);
+        XMEM_FREE(wreq);
         
         //刚才增加了引用计数,现在减掉
         pt_buffer_free(buff);
@@ -583,14 +583,14 @@ qboolean pt_server_disconnect_conn(struct pt_sclient *user)
 	{
 		user->connected = false;
 
-		req = MEM_MALLOC(sizeof(uv_shutdown_t));
+		req = XMEM_MALLOC(sizeof(uv_shutdown_t));
 		req->data = user;
 
 		user->server->last_error = uv_shutdown(req, &user->sock.stream, pt_server_shutdown_cb);
 
 		if(user->server->last_error != 0)
 		{
-			MEM_FREE(req);
+			XMEM_FREE(req);
 
 			user->disconnect_type = DISCONNECT_TYPE_CLOSE;
 			uv_close((uv_handle_t*)&user->sock.stream, pt_server_on_close_conn);

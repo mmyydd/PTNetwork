@@ -1,4 +1,4 @@
-#ifndef _PT_CLIENT_INCLUED_H_
+﻿#ifndef _PT_CLIENT_INCLUED_H_
 #define _PT_CLIENT_INCLUED_H_
 
 struct pt_client;

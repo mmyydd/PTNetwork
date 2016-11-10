@@ -1,6 +1,6 @@
-#include "common.h"
+﻿#include "common.h"
 #include "crc32.h"
-#include "error.h"
+#include "pt_error.h"
 #include "buffer.h"
 #include "packet.h"
 #include "async_client.h"
@@ -12,13 +12,13 @@ static void pt_client_alloc_cb(uv_handle_t* handle,size_t suggested_size,uv_buf_
     
     if(user->async_buf){
         if(user->async_buf->len < suggested_size){
-            MEM_FREE(user->async_buf->base);
+            XMEM_FREE(user->async_buf->base);
             user->async_buf->len = suggested_size;
-            user->async_buf->base = MEM_MALLOC(suggested_size);
+            user->async_buf->base = XMEM_MALLOC(suggested_size);
         }
     } else {
-        user->async_buf = MEM_MALLOC(sizeof(*user->async_buf));
-        user->async_buf->base = MEM_MALLOC(suggested_size);
+        user->async_buf = XMEM_MALLOC(sizeof(*user->async_buf));
+        user->async_buf->base = XMEM_MALLOC(suggested_size);
         user->async_buf->len = suggested_size;
     }
     
@@ -36,7 +36,7 @@ static void pt_client_write_cb(uv_write_t* req, int status)
     struct pt_wreq *wr = (struct pt_wreq*)req;
     
     pt_buffer_free(wr->buff);
-    MEM_FREE(wr);
+    XMEM_FREE(wr);
 }
 
 /*
@@ -54,8 +54,8 @@ static void pt_client_close_cb(uv_handle_t* peer)
 	
 	if(conn->async_buf)
 	{
-		MEM_FREE(conn->async_buf->base);
-		MEM_FREE(conn->async_buf);
+		XMEM_FREE(conn->async_buf->base);
+		XMEM_FREE(conn->async_buf);
 
 		conn->async_buf = NULL;
 	}
@@ -102,7 +102,7 @@ static void pt_client_read_cb(uv_stream_t* stream,
             
         }
         else{
-            ERROR("pt_split_packet == NULL wtf?", __FUNCTION__, __FILE__, __LINE__);
+            PT_ERROR("pt_split_packet == NULL wtf?", __FUNCTION__, __FILE__, __LINE__);
         }
     }
     
@@ -111,7 +111,7 @@ static void pt_client_read_cb(uv_stream_t* stream,
         char error[512];
         const char *msg = packet_err == PACKET_INFO_FAKE ? "PACKET_INFO_FAKE" : "PACKET_INFO_OVERFLOW";
         sprintf(error, "pt_get_packet_status error:%s",msg);
-        ERROR(error, __FUNCTION__, __FILE__, __LINE__);
+        PT_ERROR(error, __FUNCTION__, __FILE__, __LINE__);
         pt_client_disconnect(client);
     }
 }
@@ -119,7 +119,7 @@ static void pt_client_read_cb(uv_stream_t* stream,
 static void pt_client_connect_cb(uv_connect_t* req, int status)
 {
     struct pt_client *client = req->data;
-    MEM_FREE(req);
+    XMEM_FREE(req);
 
     if(status != 0)
 	{
@@ -175,7 +175,7 @@ struct pt_client *pt_client_new()
 {
     struct pt_client *client;
     
-    client = (struct pt_client*)MEM_MALLOC(sizeof(struct pt_client));
+    client = (struct pt_client*)XMEM_MALLOC(sizeof(struct pt_client));
     
     bzero(client, sizeof(*client));
     
@@ -215,7 +215,7 @@ void pt_client_free(struct pt_client *client)
     pt_buffer_free(client->buf);
 	client->buf = NULL;
     
-    MEM_FREE(client);
+    XMEM_FREE(client);
 }
 
 qboolean pt_client_send(struct pt_client *client, struct pt_buffer *buff)
@@ -229,7 +229,7 @@ qboolean pt_client_send(struct pt_client *client, struct pt_buffer *buff)
 		return is_completed;
 	}
 
-    struct pt_wreq *req = MEM_MALLOC(sizeof(struct pt_wreq));
+    struct pt_wreq *req = XMEM_MALLOC(sizeof(struct pt_wreq));
 
     req->buff = buff;
     req->data = client;
@@ -248,7 +248,7 @@ qboolean pt_client_send(struct pt_client *client, struct pt_buffer *buff)
 			client->on_error(client, "uv_write");
 		}
 
-		MEM_FREE(req);
+		XMEM_FREE(req);
 
 		pt_buffer_free(buff);
 	}
@@ -276,7 +276,7 @@ qboolean pt_client_connect(struct pt_client *client, const char *host, uint16_t 
 
 	client->is_shutdown = false;
     
-    uv_connect_t *conn = MEM_MALLOC(sizeof(uv_connect_t));
+    uv_connect_t *conn = XMEM_MALLOC(sizeof(uv_connect_t));
     conn->data = client;
     
     uv_ip4_addr(host, port, &adr);
@@ -319,7 +319,7 @@ qboolean pt_client_connect_pipe(struct pt_client *client, const char *path)
 		return false;
     }
     
-    uv_connect_t *conn = MEM_MALLOC(sizeof(uv_connect_t));
+    uv_connect_t *conn = XMEM_MALLOC(sizeof(uv_connect_t));
     conn->data = client;
     
     client->state = PT_STATE_CONNECTING;

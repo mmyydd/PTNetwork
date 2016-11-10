@@ -1,16 +1,23 @@
-#include "common.h"
+﻿#include "common.h"
 #include "sync_client.h"
 #include "buffer.h"
 #include "packet.h"
 
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <sys/un.h>
+#endif
 
 void pt_sync_client_init(struct pt_sync_client *sync_client)
 {
 	bzero(sync_client, sizeof(struct pt_sync_client));
 
+#ifdef _WIN32
+	sync_client->fd = SOCKET_ERROR;
+#else
 	sync_client->fd = -1;
+#endif
+	
 }
 
 
@@ -18,8 +25,15 @@ void pt_sync_client_close(struct pt_sync_client *sync_client)
 {
 	if(sync_client->fd != -1)
 	{
+#ifdef _WIN32
+		closesocket(sync_client->fd);
+		sync_client->fd = SOCKET_ERROR;
+#else
 		close(sync_client->fd);
 		sync_client->fd = -1;
+#endif
+
+		
 		sync_client->is_connected = false;
 	}
 }
@@ -29,7 +43,6 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 {
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
-	qboolean done;
 	struct sockaddr_in adr;
 	char str_port[10];
 
@@ -39,7 +52,7 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 
 	servinfo = NULL;
 
-	sprintf(str_port, "%u", port);
+	snprintf(str_port, sizeof(str_port), "%u", port);
 	if ((rv = getaddrinfo( host, str_port,  &hints, &servinfo)) != 0) {
 		sync_client->_errno = errno;
 		return pt_sync_err_getaddrinfo_fail;
@@ -60,7 +73,9 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 
 	memcpy( &sync_client->adr, &adr, sizeof( adr ) );
 
+#ifndef _WIN32
 	sync_client->is_un = false;
+#endif
 	sync_client->is_set_adr = true;
 
 	freeaddrinfo(servinfo);
@@ -68,6 +83,7 @@ int pt_sync_client_set_connect(struct pt_sync_client *sync_client, const char *h
 	return pt_sync_err_noerr;
 }
 
+#ifndef _WIN32
 void pt_sync_client_set_connect_pipe(struct pt_sync_client *sync_client, const char *file)
 {
 	sync_client->un_adr.sun_family = PF_UNIX;
@@ -76,7 +92,7 @@ void pt_sync_client_set_connect_pipe(struct pt_sync_client *sync_client, const c
 	sync_client->is_un = true;
 	sync_client->is_set_adr = true;
 }
-
+#endif
 
 int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 {
@@ -91,6 +107,7 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 	{
 		return pt_sync_err_already_connected;
 	}
+#ifndef _WIN32
 	if(sync_client->is_un)
 	{
 		sync_client->fd = socket(PF_UNIX, SOCK_STREAM, 0);
@@ -99,13 +116,15 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 	{
 		sync_client->fd = socket(AF_INET, SOCK_STREAM, 0);
 	}
-
+#else
+	sync_client->fd = socket(AF_INET, SOCK_STREAM, 0);
+#endif
 	if(sync_client->fd == -1)
 	{
 		sync_client->_errno = errno;
 		return pt_sync_err_alloc_socket_fail;
 	}
-
+#ifndef _WIN32
 	if(sync_client->is_un)
 	{
 		options = connect(sync_client->fd, (struct sockaddr *)&sync_client->un_adr, sizeof(sync_client->un_adr));
@@ -114,18 +133,24 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 	{
 		options = connect(sync_client->fd, (struct sockaddr *)&sync_client->adr, sizeof(sync_client->adr));
 	}
-
+#else
+	options = connect(sync_client->fd, (struct sockaddr *)&sync_client->adr, sizeof(sync_client->adr));
+#endif
 	if(options != 0)
 	{
 		sync_client->_errno = errno;
 
+#ifdef _WIN32
+		closesocket(sync_client->fd);
+		sync_client->fd = SOCKET_ERROR;
+#else
 		close(sync_client->fd);
 		sync_client->fd = -1;
-
+#endif
 		return pt_sync_err_connect_fail;
 	}
 
-	
+#ifndef _WIN32
 	//强制数据发送出去
 	//因为代码用于RPC 需要及时响应 所以禁用nagle 并且设置cork为0强行发送数据
 	options = 1;
@@ -133,6 +158,10 @@ int pt_sync_client_real_connect(struct pt_sync_client *sync_client)
 
 	options = 0;
 	setsockopt(sync_client->fd, SOL_TCP, TCP_CORK, &options, sizeof(options));
+#else
+	options = 1;
+	setsockopt(sync_client->fd, IPPROTO_TCP, TCP_NODELAY, &options, sizeof(options));
+#endif
 
 	sync_client->is_connected = true;
 	return pt_sync_err_noerr;
@@ -145,9 +174,13 @@ int pt_sync_client_disconnect(struct pt_sync_client *sync_client)
 		return pt_sync_err_no_connect;
 	}
 	
+#ifndef _WIN32
 	close(sync_client->fd);
 	sync_client->fd = -1;
-
+#else
+	closesocket(sync_client->fd);
+	sync_client->fd = SOCKET_ERROR;
+#endif
 	return pt_sync_err_noerr;
 }
 

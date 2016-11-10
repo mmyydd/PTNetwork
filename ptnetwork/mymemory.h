@@ -9,10 +9,10 @@ void* ecalloc(size_t count, size_t size, const char *function, const char *file,
 void enable_memory_debugger();
 void dump_leak();
 
-#define MEM_MALLOC(size) emalloc(size, __FUNCTION__, __FILE__, __LINE__)
-#define MEM_FREE(ptr) efree(ptr, __FUNCTION__, __FILE__, __LINE__)
-#define MEM_REALLOC(ptr, size) erealloc(ptr, size, __FUNCTION__, __FILE__, __LINE__)
-#define MEM_CALLOC(count, size) ecalloc(count, size, __FUNCTION__, __FILE__, __LINE__)
+#define XMEM_MALLOC(size) emalloc(size, __FUNCTION__, __FILE__, __LINE__)
+#define XMEM_FREE(ptr) efree(ptr, __FUNCTION__, __FILE__, __LINE__)
+#define XMEM_REALLOC(ptr, size) erealloc(ptr, size, __FUNCTION__, __FILE__, __LINE__)
+#define XMEM_CALLOC(count, size) ecalloc(count, size, __FUNCTION__, __FILE__, __LINE__)
 
 
 #endif /* ememory_h */

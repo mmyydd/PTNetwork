@@ -1,4 +1,4 @@
-//
+﻿//
 //  error.h
 //  xcode
 //
@@ -21,11 +21,11 @@ enum error_level_enum
 };
 
 
-void FATAL(const char *message, const char *function, const char *file, int line);
-void ERROR(const char *message, const char *function, const char *file, int line);
-void LOG(const char *message, const char *function, const char *file, int line);
-void TRACE(const char *message, const char *function, const char *file, int line);
-void WARNING(const char *message, const char *function, const char *file, int line);
+void PT_FATAL(const char *message, const char *function, const char *file, int line);
+void PT_ERROR(const char *message, const char *function, const char *file, int line);
+void PT_LOG(const char *message, const char *function, const char *file, int line);
+void PT_TRACE(const char *message, const char *function, const char *file, int line);
+void PT_WARNING(const char *message, const char *function, const char *file, int line);
 
 typedef void (*error_report_cb)(const char *message, const char *function, const char *file, int line);
 void set_error_report(enum error_level_enum level, error_report_cb cb);

@@ -7,7 +7,7 @@ extern "C"{
 
 #include <ptnetwork/common.h>
 #include <ptnetwork/crc32.h>
-#include <ptnetwork/error.h>
+#include <ptnetwork/pt_error.h>
 #include <ptnetwork/mymemory.h>
 #include <ptnetwork/buffer.h>
 #include <ptnetwork/buffer_reader.h>
